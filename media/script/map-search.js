@@ -132,13 +132,9 @@ var mapstory = mapstory || {};
         });
 
 
-        this.$el.find('a.ms-add-to-map').click(
-            Ext.createDelegate(this.addToMap, this)
-        );
+        this.$el.find('a.ms-add-to-map').click(this.addToMap.bind(this));
 
-        this.$el.find('.show-meta').click(
-            Ext.createDelegate(this.toggleInfo, this)
-        );
+        this.$el.find('.show-meta').click(this.toggleInfo.bind(this));
 
         return this;
     };
@@ -159,9 +155,7 @@ var mapstory = mapstory || {};
             id: 'ms-search-widget'
         });
 
-        $(window).resize(
-            Ext.createDelegate(this.setLeft, this)
-        );
+        $(window).resize(this.setLeft.bind(this));
 
         this.setLeft();
         this.template = widgetTemplate;
@@ -252,14 +246,14 @@ var mapstory = mapstory || {};
         $.ajax({
             url: this.searchUrl,
             data: queryParameters
-        }).done(Ext.createDelegate(this.renderLayers, this));
+        }).done(this.renderLayers.bind(this));
 
 
     };
 
 
     LayerSearch.prototype.render = function () {
-        var doSearch = Ext.createDelegate(this.doSearch, this);
+        var doSearch = this.doSearch.bind(this);
 
         this.$el.append(this.template.apply());
         this.$layerList = this.$el.find('#ms-search-layers ul');
@@ -270,9 +264,9 @@ var mapstory = mapstory || {};
         // after the elements are added to the dom element attach the
         // events
         this.$el.find('#done').click(
-            Ext.createDelegate(function () {
+            function () {
                 this.$el.remove();
-            }, this)
+            }.bind(this)
         );
 
         this.$el.find('#search').click(doSearch);
@@ -289,19 +283,19 @@ var mapstory = mapstory || {};
 
         });
         // TODO, these seem very similar see how to combine them
-        this.$el.find('#prev').click(Ext.createDelegate(function (event) {
+        this.$el.find('#prev').click(function (event) {
             event.preventDefault();
             this.currentPage = this.currentPage - 1;
             this.setPageButtons();
             this.doSearch();
-        }, this));
+        }.bind(this));
 
-        this.$el.find('#next').click(Ext.createDelegate(function (event) {
+        this.$el.find('#next').click(function (event) {
             event.preventDefault();
             this.currentPage = this.currentPage + 1;
             this.setPageButtons();
             this.doSearch();
-        }, this));
+        }.bind(this));
 
         this.setPageButtons();
         $('body').append(this.$el);
