@@ -12,7 +12,7 @@ var mapstory = mapstory || {};
         '<div class="ms-layer-title">',
         '<p>',
         '<a class="show-meta" href="#">{title}</a> by ',
-        '<a href="<%= layer.owner_detail %>">{owner}</a> on ',
+        '<a href="{owner_detail}">{owner}</a> on ',
         '{last_modified} ',
         '<a class="ms-add-to-map" href="#">Add to map</a>',
         '</p>',
@@ -23,40 +23,40 @@ var mapstory = mapstory || {};
         ' {rating} Rating</p>',
         '<div class="ms-layer-abstract">{abstract}</div>',
         '</div>'
-
     ).compile();
 
     // maybe this template should live in the html document
     widgetTemplate = new Ext.Template(
-    '<div id="ms-header">',
-      '<form>',
+        '<div id="ms-header">',
+        '<form>',
         '<fieldset>',
-          '<button id="search" type="submit">Search</button>',
-          '<input id="query" type="text" class="search-query">',
-          '<select id="sortBy">',
-            '<option value="newest">Newest</option>',
-            '<option value="oldest">Oldest</option>',
-            '<option value="alphaaz">Alphabetical (A-Z)</option>',
-            '<option value="alphaza">Alphabetical (Z-A)</option>',
-            '<option value="popularity">Popularity</option>',
-            '<option value="rel">Relevance</option>',
-          '</select>',
+        '<button id="search" type="submit">Search</button>',
+        '<input id="query" type="text" class="search-query">',
+        '<select id="sortBy">',
+        '<option value="newest">Newest</option>',
+        '<option value="oldest">Oldest</option>',
+        '<option value="alphaaz">Alphabetical (A-Z)</option>',
+        '<option value="alphaza">Alphabetical (Z-A)</option>',
+        '<option value="popularity">Popularity</option>',
+        '<option value="rel">Relevance</option>',
+        '</select>',
         '</fieldset>',
         '<fieldset>',
-          '<label>Show meta info expanded</label>',
-          '<input id="show-meta-info" type="checkbox" checked>',
+        '<label>Show expanded</label>',
+        '<input id="show-meta-info" type="checkbox" checked>',
         '<button id="prev">Prev</button>',
         '<button id="next">Next</button>',
         '</fieldset>',
-      '</form>',
-    '</div>',
-    '<div id="ms-search-layers">',
-      '<ul>',
-      '</ul>',
-    '</div>',
-    '<div id="ms-footer">',
-      '<button id="done">Done</button>',
-    '</div>').compile();
+        '</form>',
+        '</div>',
+        '<div id="ms-search-layers">',
+        '<ul>',
+        '</ul>',
+        '</div>',
+        '<div id="ms-footer">',
+        '<button id="done">Done</button>',
+        '</div>'
+    ).compile();
 
     LayerResult = function (options) {
         this.$el = $('<li>');
