@@ -155,10 +155,20 @@ var mapstory = mapstory || {};
             id: 'ms-search-widget'
         });
 
-        $(window).resize(this.setLeft.bind(this));
+        $(window).resize(this.adjustWidget.bind(this));
 
-        this.setLeft();
+
         this.template = widgetTemplate;
+
+    };
+
+    LayerSearch.prototype.adjustWidget = function () {
+        var widgetWidth = 600;
+        this.$el.css('left', $(window).width() / 2 - widgetWidth / 2);
+        this.$el.find('#ms-search-layers ul').css(
+            'max-height',
+            $(window).height() - 200
+        );
 
     };
 
@@ -189,11 +199,6 @@ var mapstory = mapstory || {};
 
     LayerSearch.prototype.getStart = function () {
         return this.pageSize * this.currentPage - this.pageSize;
-    };
-
-    LayerSearch.prototype.setLeft = function () {
-        var widgetWidth = 600;
-        this.$el.css('left', $(window).width() / 2 - widgetWidth / 2);
     };
 
     LayerSearch.prototype.renderLayer = function (layer) {
@@ -257,6 +262,8 @@ var mapstory = mapstory || {};
 
         this.$el.append(this.template.apply());
         this.$layerList = this.$el.find('#ms-search-layers ul');
+        this.adjustWidget();
+
 
         // populate the widget when its rendered
         this.doSearch();
@@ -280,7 +287,6 @@ var mapstory = mapstory || {};
                 evt.preventDefault();
                 doSearch();
             }
-
         });
         // TODO, these seem very similar see how to combine them
         this.$el.find('#prev').click(function (event) {
