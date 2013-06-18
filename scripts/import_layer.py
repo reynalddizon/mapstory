@@ -1,4 +1,5 @@
 '''Import an extracted layer and related resources'''
+import os.path
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import serializers
@@ -12,8 +13,11 @@ from optparse import OptionParser
 import json
 import psycopg2
 import os
+import subprocess
 import tempfile
 import shutil
+import glob
+import xml.etree.ElementTree as ET
 
 from update_thumb_specs import make_thumbnail_updater
 
@@ -27,8 +31,8 @@ def _get_user(**kw):
         return None
 
 @transaction.commit_on_success
-def import_layer(gs_data_dir, conn, layer_tempdir, layer_name, owner_name,
-                 no_password=False, chown_to=None, do_django_layer_save=True,
+def import_layer(conn, layer_tempdir, layer_name, owner_name,
+                 no_password=False, do_django_layer_save=True,
                  th_from_string=None, th_to_string=None):
 
     owner = None
@@ -38,17 +42,19 @@ def import_layer(gs_data_dir, conn, layer_tempdir, layer_name, owner_name,
             raise ImportException('specified owner_name "%s" does not exist' % owner_name)
 
     print 'importing layer: %s' % layer_name
-    gspath = lambda *p: os.path.join(gs_data_dir, *p)
+
+    cat = Layer.objects.gs_catalog
 
     temppath = lambda *p: os.path.join(layer_tempdir, *p)
 
+    # @todo cannot rollback this via the connection transaction, must be done manually
     restore_string = 'pg_restore --host=%s --dbname=%s --clean --username=%s %s < %s' % (
         settings.DB_DATASTORE_HOST, settings.DB_DATASTORE_DATABASE, settings.DB_DATASTORE_USER,
         no_password and '--no-password' or '',
         temppath('layer.dump'),
     )
     # can't check return value since pg_restore will complain if any drop statements fail :(
-    os.system(restore_string)
+    subprocess.call(restore_string, shell=True, env={'PGPASSWORD':settings.DB_DATASTORE_PASSWORD})
 
     # rebuild the geometry columns entry
     with open(temppath("geom.info")) as fp:
@@ -60,31 +66,64 @@ def import_layer(gs_data_dir, conn, layer_tempdir, layer_name, owner_name,
     cursor.execute("delete from geometry_columns where f_table_schema='%s' and f_table_name='%s'" % (geom_cols[1],geom_cols[2]))
     cursor.execute('insert into geometry_columns VALUES(%s)' % ','.join(["'%s'" % v for v in geom_cols]))
 
-    #copy in styles
-    for f in os.listdir(temppath('styles')):
-        shutil.copy(temppath('styles',f),gspath('styles'))
+    # To the stylemobile!
+    # build a dict of id->style so we can match them up to layers later
+    style_by_id = {}
+    for f in glob.glob("%s/*.xml" % temppath('styles')):
+        style_xml = ET.parse(f).getroot()
+        filename = style_xml.find('filename').text
+        style_name = style_xml.find('name').text
+        sld = open(temppath('styles', filename), 'r').read()
+        try:
+            # @todo allow overwrite via the named argument?
+            cat.create_style(style_name, sld)
+        except Exception, ex:
+            print "error creating style : %s" % ex
+        id = style_xml.find('id').text
+        style_by_id[id] = style_name
 
-    # and other geoserver info
+
+    # Now let's load the layers
     for ws in os.listdir(temppath('workspaces')):
         for store_name in os.listdir(temppath('workspaces',ws)):
             for layer_name in os.listdir(temppath('workspaces',ws,store_name)):
-                dest_dir = gspath('workspaces', ws, store_name, layer_name)
-                if not os.path.exists(dest_dir):
-                    os.makedirs(dest_dir)
-                fdir = temppath('workspaces', ws, store_name, layer_name)
-                for f in os.listdir(fdir):
-                    shutil.copy(os.path.join(fdir,f), dest_dir)
-            
-    if chown_to:
-        from pwd import getpwnam
-        userid = getpwnam(chown_to)[2]
-        for root, dirs, files in os.walk(gspath()):
-            os.chown(root, userid, -1)
-            for f in files:
-                os.chown(os.path.join(root, f), userid, -1)
+
+                # @todo allow overriding existing?
+                if cat.get_layer(layer_name) is None:
+                    # create the layer by reading the xml, stripping some specific
+                    # ids, and posting to REST endpoint
+                    # @todo didn't see nice way to do this via gsconfig
+                    gs_feature_url = "%(base)srest/workspaces/%(workspace)s/datastores/%(datastore)s/featuretypes" % dict(
+                        base = settings.GEOSERVER_BASE_URL,
+                        workspace = ws,
+                        datastore = store_name
+                    )
+                    feature_xml = ET.parse(temppath('workspaces',ws,store_name,layer_name,'featuretype.xml')).getroot()
+                    # strip potentially foreign ids
+                    for el in ('id', 'namespace', 'store'):
+                        feature_xml.remove(feature_xml.find(el))
+                    headers, response = cat.http.request(gs_feature_url, "POST", ET.tostring(feature_xml), { "Content-Type": "application/xml" })
+                    if str(headers.status) != '201':
+                        print gs_feature_url
+                        print response
+                        raise ImportException("Invald response from REST, layer creation: %s" % headers.status)
+                else:
+                    print "skipping feature type creation, layer already exists"
+
+                # now set the styles - we have to track down what styles are in
+                # use via the style ids :(
+                layer_xml = ET.parse(temppath('workspaces',ws,store_name,layer_name,'layer.xml')).getroot()
+                cat_layer = cat.get_layer(layer_name)
+                # if these styles don't speak the 'name' attribute, they don't quack
+                # quack!
+                style = lambda el: type('style',(object,),{'name' : style_by_id[el.text]})
+                cat_layer.styles = [ style(id) for id in layer_xml.findall('.//style/id') ]
+                # this one can be by name
+                cat_layer.default_style = style_by_id[layer_xml.find('.//defaultStyle/id').text]
+                cat.save(cat_layer)
 
     # reload catalog
-    Layer.objects.gs_catalog.http.request(settings.GEOSERVER_BASE_URL + "rest/reload",'POST')
+    Layer.objects.gs_catalog.http.request(settings.INTERNAL_GEOSERVER_BASE_URL + "rest/reload",'POST')
 
     if do_django_layer_save:
         # now we can create the django model - must be done last when gscatalog is ready
@@ -151,10 +190,6 @@ if __name__ == '__main__':
     gs_data_dir = '/var/lib/geoserver/geonode-data/'
 
     parser = OptionParser('usage: %s [options] layer_import_file.zip' % __file__)
-    parser.add_option('-d', '--data-dir',
-                      dest='data_dir',
-                      default=gs_data_dir,
-                      help='geoserver data dir')
     parser.add_option('-P', '--no-password',
                       dest='no_password', action='store_true',
                       help='Add the --no-password option to the pg_restore'
@@ -162,14 +197,6 @@ if __name__ == '__main__':
                       'with the credentials. See the pg_restore man page'
                       'for details.',
                       default=False,
-                      )
-    parser.add_option('-c', '--chown-to',
-                      dest='chown_to',
-                      help='If set, chown the files copied into the'
-                      'geoserver data directory to a particular'
-                      'user. Assumes the user running is root or has'
-                      'permission to do so. This is useful to chown the'
-                      'files to something like tomcat6 afterwards.',
                       )
     parser.add_option('-L', '--skip-django-layer-save',
                       dest='do_django_layer_save',
@@ -189,15 +216,19 @@ if __name__ == '__main__':
                       dest='owner_name',
                       help='Set the layer owner to a user by this name - must exist',
                       )
+    parser.add_option('-u', '--gs-user',
+                      dest='gs_user',
+                      help='GeoServer User to import data with.',
+                      )
+    parser.add_option('-p', '--gs-pass',
+                      dest='gs_pass',
+                      help='GeoServer Password to import data with.',
+                      )
 
     (options, args) = parser.parse_args()
     if len(args) != 1:
         parser.error('please provide a layer extract zip file')
 
-    if not os.path.exists(options.data_dir):
-        parser.error(("geoserver data directory %s not found,"
-                      "please specify one via the -d option") % options.data_dir)
-    
     conn = psycopg2.connect("dbname='" + settings.DB_DATASTORE_DATABASE + 
                             "' user='" + settings.DB_DATASTORE_USER + 
                             "' password='" + settings.DB_DATASTORE_PASSWORD + 
@@ -210,8 +241,9 @@ if __name__ == '__main__':
     os.system('unzip %s -d %s' % (zipfile, tempdir))
     success = False
     try:
-        import_layer(options.data_dir, conn, tempdir, layer_name,
-                     options.owner_name, options.no_password, options.chown_to,
+        import_layer(conn, tempdir, layer_name,
+                     options.owner_name,
+                     options.no_password,
                      options.do_django_layer_save,
                      options.th_from_string, options.th_to_string)
         success = True
