@@ -120,7 +120,6 @@ var mapstory = mapstory || {};
 
         this.$el.html(this.template.apply(this.layer));
 
-
         if (!showMeta) {
             this.$el.find('div.ms-layer-info').hide();
         }
@@ -133,7 +132,6 @@ var mapstory = mapstory || {};
 
 
         this.$el.find('a.ms-add-to-map').click(this.addToMap.bind(this));
-
         this.$el.find('.show-meta').click(this.toggleInfo.bind(this));
 
         return this;
@@ -142,14 +140,12 @@ var mapstory = mapstory || {};
     // main view object controls rendering widget template and
     // controls the events that are attached to this widget
     LayerSearch = function (options) {
-
         this.searchUrl = options.searchUrl;
         this.geoExplorer = options.geoExplorer;
-
         this.pageSize = options.pageSize || 10;
-
         this.currentPage = 1;
         this.numberOfRecords = 0;
+        this.httpFactory = options.httpFactory || $.ajax;
 
         this.$el = $('<div/>', {
             id: 'ms-search-widget'
@@ -244,15 +240,15 @@ var mapstory = mapstory || {};
             },
             q  = this.$el.find('#query').val();
 
-        if (q !== '') {
+        if (q) {
             queryParameters.q = q;
         }
 
-        $.ajax({
+        this.httpFactory({
             url: this.searchUrl,
-            data: queryParameters
-        }).done(this.renderLayers.bind(this));
-
+            data: queryParameters,
+            success: this.renderLayers.bind(this)
+        });
 
     };
 
