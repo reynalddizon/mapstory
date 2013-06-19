@@ -66,6 +66,8 @@ class ConfigMigration(object):
     def _run(self):
         'general run'
         self.init()
+        if self.opts.ids:
+            self.query_set = self.query_set.filter(id__in=self.opts.ids.split(','))
         if self.dry_run:
             msg = 'dry run, will not make any changes'
             print '*' * len(msg)
@@ -184,6 +186,8 @@ if __name__ == '__main__':
     parser.add_option('-f', '--force-backup',
         help='Overwrite any existing backup',
         action='store_true', default=False)
+    parser.add_option('-i', '--ids',
+        help='Limit the query further with provided comma-sep ids')
 
     args = sys.argv[1:]
     if not len(args):
@@ -195,14 +199,18 @@ if __name__ == '__main__':
             print 'help requires a migration name'
             sys.exit(1)
     migrations = dict([ (v[0].lower(),v[1]) for v in _migrations() ])
-    migration_name = [ a for a in args if a[0] != '-' ]
-    migration_name = migration_name[0] if migration_name else None
-    if not migration_name:
+    migration_names = [ a for a in args if a[0] != '-' ]
+    if not migration_names:
         _print_help(parser, 1)
-    if not migration_name.lower() in migrations:
-        print 'migration not found:', migration_name
+    migration = None
+    for name in migration_names:
+        migration = migrations.get(name.lower(), None)
+        if migration:
+            migration = migration()
+            break
+    if migration is None:
+        print 'no migration not found'
         _print_help(parser, 1)
-    migration = migrations[migration_name.lower()]()
     migration.configure_options(parser)
     if help: _print_help(parser)
     try:
