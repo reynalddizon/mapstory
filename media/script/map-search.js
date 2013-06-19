@@ -87,8 +87,7 @@ var mapstory = mapstory || {};
         '<input id="show-meta-info" type="checkbox" checked>',
 
         '<label>Limit layers to current extent</label>',
-        '<input id="current-extent" type="checkbox" checked>',
-
+        '<input id="current-extent" type="checkbox">',
 
         '<button id="prev">Prev</button>',
         '<button id="next">Next</button>',
@@ -190,7 +189,6 @@ var mapstory = mapstory || {};
 
     // make these functions so we can pass them as arguments to
     // another function
-
     function inc(x) {
         return x + 1;
     }
@@ -198,7 +196,6 @@ var mapstory = mapstory || {};
     function dec(x) {
         return x - 1;
     }
-
 
     // main view object controls rendering widget template and
     // controls the events that are attached to this widget
@@ -226,7 +223,7 @@ var mapstory = mapstory || {};
         this.$el.on('click', '#search', doSearch);
         this.$el.on('change', '#sortBy', doSearch);
         this.$el.on('change', '#show-meta-info', doSearch);
-        this.$el.on('change', '#bbox-limit', doSearch);
+        this.$el.on('change', '#current-extent', doSearch);
         this.$el.on('click', '#prev', this.handlePage.bind(this, dec));
         this.$el.on('click', '#next', this.handlePage.bind(this, inc));
         this.$el.on('keypress', 'form', function (evt) {
@@ -313,9 +310,12 @@ var mapstory = mapstory || {};
         this.showMeta = this.$el.find(
             '#show-meta-info:checkbox'
         ).is(':checked');
-// search the current bounding box
-// min_x,min_y,max_x,max_y
-        var queryParameters = {
+
+        // search the current bounding box
+        // min_x,min_y,max_x,max_y
+        var searchExtent = this.$el.find('#current-extent').is(':checked'),
+            extent,
+            queryParameters = {
                 // hard code the type as it does not make sense to add a
                 // map to another map
                 bytype: 'layer',
@@ -324,6 +324,11 @@ var mapstory = mapstory || {};
                 sort: this.$el.find('#sortBy').val()
             },
             q  = this.$el.find('#query').val();
+
+        if (searchExtent) {
+            extent = this.geoExplorer.mapPanel.map.getExtent();
+            queryParameters.byextent = extent.toArray().join(',');
+        }
 
         if (q) {
             queryParameters.q = q;
