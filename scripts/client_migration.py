@@ -1,3 +1,4 @@
+import os.path
 # support for client config migrations
 #
 #
@@ -7,12 +8,18 @@ import optparse # for 2.6 support
 import os
 import sys
 
+os.environ['DJANGO_SETTINGS_MODULE'] = "mapstory.settings"
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from django.db import transaction
 from django.core import serializers
 from geonode.maps.models import MapLayer
 from geonode.maps.models import Map
 
 
-os.environ['DJANGO_SETTINGS_MODULE'] = "mapstory.settings"
+class MigrationException(Exception):
+    pass
+
 
 class ConfigMigration(object):
 
@@ -22,21 +29,22 @@ class ConfigMigration(object):
 
     def do_backup(self):
         'dump serialized models before changing them'
-        if not self.query_set:
+        if self.query_set is None:
             raise Exception('need a query_set defined')
         backup_name = '%s_backup.json' % self.__class__.__name__
         if not self.opts.force_backup and os.path.exists(backup_name):
-            raise Exception('backup file exists, please delete : %s' % backup_name)
-        data = serializers.serialize("json", self.query_set)
-        with open(backup_name, 'w') as fp:
-            fp.write(data)
-        print 'backed up %s models to %s' % (self.query_set.count(), backup_name)
+            raise MigrationException('backup file exists, please delete or provide -f option : %s' % backup_name)
+        if self.query_set.count():
+            data = serializers.serialize("json", self.query_set)
+            with open(backup_name, 'w') as fp:
+                fp.write(data)
+            print 'backed up %s models to %s' % (self.query_set.count(), backup_name)
 
     def restore(self):
         'restore from serialized models'
         backup_name = '%s_backup.json' % self.__class__.__name__
         if not os.path.exists(backup_name):
-            raise Exception('no backup present')
+            raise MigrationException('no backup present')
         for obj in serializers.deserialize("json", open(backup_name).read()):
             print 'restored', obj
             obj.save()
@@ -65,7 +73,17 @@ class ConfigMigration(object):
             print '*' * len(msg)
         if not self.dry_run:
             self.do_backup()
-        self.run()
+        transaction.enter_transaction_management()
+        transaction.managed(True)
+        try:
+            self.run()
+        except:
+            print 'aborting transaction'
+            transaction.rollback()
+            raise
+        else:
+            transaction.commit()
+
 
     def process_model(self, m):
         raise Exception('implement process_model')
@@ -170,18 +188,24 @@ if __name__ == '__main__':
     args = sys.argv[1:]
     if not len(args):
         _print_help(parser)
-    help = args[0] == 'help'
+    help = 'help' in args
     if help:
-        args.pop(0)
+        args.remove('help')
         if not len(args):
             print 'help requires a migration name'
             sys.exit(1)
     migrations = dict([ (v[0].lower(),v[1]) for v in _migrations() ])
-    migration = args.pop(0)
-    if not migration.lower() in migrations:
-        print 'migration not found:', migration
+    migration_name = [ a for a in args if a[0] != '-' ]
+    migration_name = migration_name[0] if migration_name else None
+    if not migration_name:
         _print_help(parser, 1)
-    migration = migrations[migration.lower()]()
+    if not migration_name.lower() in migrations:
+        print 'migration not found:', migration_name
+        _print_help(parser, 1)
+    migration = migrations[migration_name.lower()]()
     migration.configure_options(parser)
     if help: _print_help(parser)
-    migration.main(*parser.parse_args(args))
+    try:
+        migration.main(*parser.parse_args(args))
+    except MigrationException, me:
+        print me
