@@ -1,11 +1,51 @@
 /*jslint browser: true, nomen: true, indent: 4, maxlen: 80 */
 /*global window, jQuery, _, Ext  */
 
+// include this for older versions of ie, ie8 i am looking at you.
+// find a better place for this
+// taken from the mdn
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/bind?redirectlocale=en-US&redirectslug=JavaScript%2FReference%2FGlobal_Objects%2FFunction%2Fbind#Compatibility
+if (!Function.prototype.bind) {
+    Function.prototype.bind = function (oThis) {
+        'use strict';
+
+        if (typeof this !== "function") {
+            throw new TypeError(
+                "What is trying to be bound is not callable"
+            );
+        }
+
+        var slice = Array.prototype.slice,
+            aArgs = slice.call(arguments, 1),
+            fToBind = this,
+            FNOP = function () {},
+            fBound = function () {
+                return fToBind.apply(
+                    this instanceof FNOP && oThis
+                        ? this
+                        : oThis,
+                    aArgs.concat(slice.call(arguments))
+                );
+            };
+
+        FNOP.prototype = this.prototype;
+        fBound.prototype = new FNOP();
+
+        return fBound;
+    };
+}
+
+
 var mapstory = mapstory || {};
 
 (function ($) {
     'use strict';
-    var LayerResult, LayerSearch, layerElementTemplate, widgetTemplate;
+    var LayerResult,
+        LayerSearch,
+        layerElementTemplate,
+        widgetTemplate,
+        View,
+        TestView;
 
 
     layerElementTemplate = new Ext.Template(
@@ -42,8 +82,14 @@ var mapstory = mapstory || {};
         '</select>',
         '</fieldset>',
         '<fieldset>',
+
         '<label>Show expanded</label>',
         '<input id="show-meta-info" type="checkbox" checked>',
+
+        '<label>Limit layers to current extent</label>',
+        '<input id="current-extent" type="checkbox" checked>',
+
+
         '<button id="prev">Prev</button>',
         '<button id="next">Next</button>',
         '</fieldset>',
@@ -58,11 +104,24 @@ var mapstory = mapstory || {};
         '</div>'
     ).compile();
 
+
     LayerResult = function (options) {
-        this.$el = $('<li>');
+        this.$el = $('<li/>');
         this.layer = options.layer;
         this.geoExplorer = options.geoExplorer;
         this.template = layerElementTemplate;
+
+        this.$el.on(
+            'click',
+            'a.ms-add-to-map',
+            this.addToMap.bind(this)
+        );
+        this.$el.on(
+            'click',
+            '.show-meta',
+            this.toggleInfo.bind(this)
+        );
+
     };
 
     LayerResult.prototype.checkLayerSource = function (callback) {
@@ -96,7 +155,6 @@ var mapstory = mapstory || {};
     };
 
     LayerResult.prototype.addToMap = function () {
-
         var ge = this.geoExplorer,
             layerStore = ge.mapPanel.layers,
             layer = this.layer;
@@ -108,7 +166,6 @@ var mapstory = mapstory || {};
             });
 
             layerStore.add(record);
-
         });
     };
 
@@ -117,44 +174,70 @@ var mapstory = mapstory || {};
     };
 
     LayerResult.prototype.render = function (showMeta) {
-
         this.$el.html(this.template.apply(this.layer));
 
         if (!showMeta) {
             this.$el.find('div.ms-layer-info').hide();
         }
 
-
         this.$el.find('.ms-layer-abstract').expander({
             collapseTimer: 0,
             slicePoint: 200
         });
 
-
-        this.$el.find('a.ms-add-to-map').click(this.addToMap.bind(this));
-        this.$el.find('.show-meta').click(this.toggleInfo.bind(this));
-
         return this;
     };
+
+    // make these functions so we can pass them as arguments to
+    // another function
+
+    function inc(x) {
+        return x + 1;
+    }
+
+    function dec(x) {
+        return x - 1;
+    }
+
 
     // main view object controls rendering widget template and
     // controls the events that are attached to this widget
     LayerSearch = function (options) {
         this.searchUrl = options.searchUrl;
         this.geoExplorer = options.geoExplorer;
-        this.pageSize = options.pageSize || 10;
+        this.pageSize = options.pageSize || 25;
         this.currentPage = 1;
         this.numberOfRecords = 0;
         this.httpFactory = options.httpFactory || $.ajax;
-
+        this.template = widgetTemplate;
         this.$el = $('<div/>', {
             id: 'ms-search-widget'
         });
 
         $(window).resize(this.adjustWidget.bind(this));
+        // handle all of the events for the ui, these are all attached
+        // using event delegation so they can be bound before the
+        // child dom element is inserted into the dom
+        var doSearch = this.doSearch.bind(this);
+        this.$el.on('click', '#done', function () {
+            // we should remove all of the events
+            this.$el.remove();
+        }.bind(this));
+        this.$el.on('click', '#search', doSearch);
+        this.$el.on('change', '#sortBy', doSearch);
+        this.$el.on('change', '#show-meta-info', doSearch);
+        this.$el.on('change', '#bbox-limit', doSearch);
+        this.$el.on('click', '#prev', this.handlePage.bind(this, dec));
+        this.$el.on('click', '#next', this.handlePage.bind(this, inc));
+        this.$el.on('keypress', 'form', function (evt) {
+            // prevent the default event on the return key and redo
+            // the query
+            if (evt.which === 13) {
+                evt.preventDefault();
+                doSearch();
+            }
 
-
-        this.template = widgetTemplate;
+        });
 
     };
 
@@ -207,7 +290,7 @@ var mapstory = mapstory || {};
     };
 
     LayerSearch.prototype.renderLayers = function (layers) {
-        var self = this;
+
         this.numberOfRecords = layers.total;
 
          // if the start location is higher than the number of
@@ -219,6 +302,7 @@ var mapstory = mapstory || {};
         }
         this.$layerList.empty();
         this.setPageButtons();
+        var self = this;
         $.each(layers.rows, function (idx, layer) {
             self.renderLayer(layer);
         });
@@ -229,7 +313,8 @@ var mapstory = mapstory || {};
         this.showMeta = this.$el.find(
             '#show-meta-info:checkbox'
         ).is(':checked');
-
+// search the current bounding box
+// min_x,min_y,max_x,max_y
         var queryParameters = {
                 // hard code the type as it does not make sense to add a
                 // map to another map
@@ -252,52 +337,20 @@ var mapstory = mapstory || {};
 
     };
 
+    LayerSearch.prototype.handlePage = function (opt, evt) {
+        evt.preventDefault();
+        this.setPageButtons();
+        this.currentPage = opt(this.currentPage);
+        this.doSearch();
+    };
 
     LayerSearch.prototype.render = function () {
-        var doSearch = this.doSearch.bind(this);
 
         this.$el.append(this.template.apply());
         this.$layerList = this.$el.find('#ms-search-layers ul');
         this.adjustWidget();
-
-
         // populate the widget when its rendered
         this.doSearch();
-
-        // after the elements are added to the dom element attach the
-        // events
-        this.$el.find('#done').click(
-            function () {
-                this.$el.remove();
-            }.bind(this)
-        );
-
-        this.$el.find('#search').click(doSearch);
-        this.$el.find('#sortBy').change(doSearch);
-        this.$el.find('#bbox-limit').change(doSearch);
-        this.$el.find('#show-meta-info').change(doSearch);
-        this.$el.find('form').keypress(function (evt) {
-            // prevent the default event on the return key and redo
-            // the query
-            if (evt.which === 13) {
-                evt.preventDefault();
-                doSearch();
-            }
-        });
-        // TODO, these seem very similar see how to combine them
-        this.$el.find('#prev').click(function (event) {
-            event.preventDefault();
-            this.currentPage = this.currentPage - 1;
-            this.setPageButtons();
-            this.doSearch();
-        }.bind(this));
-
-        this.$el.find('#next').click(function (event) {
-            event.preventDefault();
-            this.currentPage = this.currentPage + 1;
-            this.setPageButtons();
-            this.doSearch();
-        }.bind(this));
 
         this.setPageButtons();
         $('body').append(this.$el);
