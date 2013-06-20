@@ -1,5 +1,5 @@
-/*jslint browser: true, nomen: true, indent: 4, maxlen: 80 */
-/*global window, jQuery, _, Ext  */
+/*jslint browser: true, nomen: true, indent: 4*/
+/*global window, jQuery, Ext, OpenLayers  */
 
 // include this for older versions of ie, ie8 i am looking at you.
 // find a better place for this
@@ -36,8 +36,6 @@ if (!Function.prototype.bind) {
 }
 
 
-var mapstory = mapstory || {};
-
 (function ($) {
     'use strict';
     var LayerResult,
@@ -47,6 +45,7 @@ var mapstory = mapstory || {};
         View,
         TestView;
 
+    Ext.ns('mapstory');
 
     layerElementTemplate = new Ext.Template(
         '<div class="ms-layer-title">',
@@ -86,9 +85,14 @@ var mapstory = mapstory || {};
         '<label>Show expanded</label>',
         '<input id="show-meta-info" type="checkbox" checked>',
 
-        '<label>Limit layers to current extent</label>',
+        '<label>Limit search to map extent</label>',
         '<input id="current-extent" type="checkbox">',
 
+        '<label>Limit search to current time range</label>',
+        '<input id="current-time" disabled type="checkbox">',
+
+        '</fieldset>',
+        '<fieldset>',
         '<button id="prev">Prev</button>',
         '<button id="next">Next</button>',
         '</fieldset>',
@@ -200,11 +204,18 @@ var mapstory = mapstory || {};
     // main view object controls rendering widget template and
     // controls the events that are attached to this widget
     LayerSearch = function (options) {
+
         this.searchUrl = options.searchUrl;
         this.geoExplorer = options.geoExplorer;
+        // save a reference to the openlayers map object
+        this.map = options.map || null;
         this.pageSize = options.pageSize || 25;
         this.currentPage = 1;
         this.numberOfRecords = 0;
+        this.timeEndable = false;
+
+        // all of a mock to be used instead of hard coding the jquery
+        // ajax method
         this.httpFactory = options.httpFactory || $.ajax;
         this.template = widgetTemplate;
         this.$el = $('<div/>', {
@@ -217,13 +228,18 @@ var mapstory = mapstory || {};
         // child dom element is inserted into the dom
         var doSearch = this.doSearch.bind(this);
         this.$el.on('click', '#done', function () {
-            // we should remove all of the events
+            // jquery's remove should also remove all of the events
+            // attached to this element and its children
+            // http://api.jquery.com/remove/
             this.$el.remove();
         }.bind(this));
         this.$el.on('click', '#search', doSearch);
         this.$el.on('change', '#sortBy', doSearch);
-        this.$el.on('change', '#show-meta-info', doSearch);
-        this.$el.on('change', '#current-extent', doSearch);
+        // all inputs are covered by the following selector
+        // #show-meta-info
+        // #current-extent
+        // #current-time
+        this.$el.on('change', 'input', doSearch);
         this.$el.on('click', '#prev', this.handlePage.bind(this, dec));
         this.$el.on('click', '#next', this.handlePage.bind(this, inc));
         this.$el.on('keypress', 'form', function (evt) {
@@ -236,131 +252,191 @@ var mapstory = mapstory || {};
 
         });
 
-    };
 
-    LayerSearch.prototype.adjustWidget = function () {
-        var widgetWidth = 600;
-        this.$el.css('left', $(window).width() / 2 - widgetWidth / 2);
-        this.$el.find('#ms-search-layers ul').css(
-            'max-height',
-            $(window).height() - 200
-        );
-
-    };
-
-    LayerSearch.prototype.setPageButtons = function () {
-        this.setPrevButton();
-        this.setNextButton();
+        this.isTimeEnabled();
+        this.findTimeControl();
     };
 
 
-    LayerSearch.prototype.setPrevButton = function () {
-        if (this.currentPage < 2) {
-            this.$el.find('#prev').attr('disabled', '');
-        } else {
-            this.$el.find('#prev').removeAttr('disabled');
-        }
+    LayerSearch.prototype = {
+        constructor: LayerSearch,
 
-    };
-    LayerSearch.prototype.setNextButton = function () {
-        var button = this.$el.find('#next'),
-            currentLoc = this.currentPage * this.pageSize;
+        /** Wait until all of the tools/controls have been populated and
+         *  then grab a reference to the playback tool
+         */
+        isTimeEnabled: function () {
+            this.geoExplorer.on('ready', function () {
+                this.map = this.geoExplorer.mapPanel.map;
+                this.findTimeControl();
+                this.map.events.on({
+                    'addlayer': this.isTimeLayer,
+                    scope: this
+                });
+            }, this);
 
-        if (currentLoc >= this.numberOfRecords && this.numberOfRecords !== 0) {
-            this.$el.find('#next').attr('disabled', '');
-        } else {
-            this.$el.find('#next').removeAttr('disabled');
-        }
-    };
+        },
+        /** Checks if a layer has a time metadata object attached to
+         *  it. Sets the value of this.timeEndable to be true if so
+         *  @param {event}
+         */
+        isTimeLayer: function (evt) {
+            var layer = evt.layer;
+            if (layer.metadata && layer.metadata.timeInfo) {
+                this.timeEnable = true;
+                this.findTimeControl();
+            }
+        },
 
-    LayerSearch.prototype.getStart = function () {
-        return this.pageSize * this.currentPage - this.pageSize;
-    };
+        findTimeControl: function () {
+            if (this.map) {
+                this.map.controls.forEach(function (control) {
+                    if (control instanceof OpenLayers.Control.DimensionManager) {
+                        this.timeEnable = true;
+                        if (!this.timeControle) {
+                            this.timeControl = control;
+                        }
 
-    LayerSearch.prototype.renderLayer = function (layer) {
-        var element = new LayerResult({
+                    }
+                }, this);
+            }
+        },
+
+        enableTimeFilter: function () {
+            if (this.timeEnable) {
+                this.$el.find('#current-time').removeAttr('disabled');
+            }
+
+        },
+
+        handlePage: function (opt, evt) {
+            evt.preventDefault();
+            this.setPageButtons();
+            this.currentPage = opt(this.currentPage);
+            this.doSearch();
+        },
+
+        adjustWidget: function () {
+            // FIXME these are all hard coded
+            var widgetWidth = 600;
+            this.$el.css('left', $(window).width() / 2 - widgetWidth / 2);
+            this.$el.find('#ms-search-layers ul').css(
+                'max-height',
+                $(window).height() - 240
+            );
+        },
+        setPageButtons: function () {
+            this.setPrevButton();
+            this.setNextButton();
+        },
+
+        setPrevButton: function () {
+            if (this.currentPage < 2) {
+                this.$el.find('#prev').attr('disabled', '');
+            } else {
+                this.$el.find('#prev').removeAttr('disabled');
+            }
+        },
+
+        setNextButton: function () {
+            var button = this.$el.find('#next'),
+                currentLoc = this.currentPage * this.pageSize;
+
+            if (currentLoc >= this.numberOfRecords && this.numberOfRecords !== 0) {
+                this.$el.find('#next').attr('disabled', '');
+            } else {
+                this.$el.find('#next').removeAttr('disabled');
+            }
+
+        },
+
+        getStart: function () {
+            return this.pageSize * this.currentPage - this.pageSize;
+        },
+
+        renderLayer: function (layer) {
+            var element = new LayerResult({
                 layer: layer,
                 geoExplorer: this.geoExplorer
             }).render(this.showMeta);
 
-        this.$layerList.append(element.$el);
-    };
+            this.$layerList.append(element.$el);
+        },
 
-    LayerSearch.prototype.renderLayers = function (layers) {
+        renderLayers: function (layers) {
+            this.numberOfRecords = layers.total;
+            // if the start location is higher than the number of
+            // returned records, then reset the page number and redo the
+            // query
+            if (layers.total <= this.getStart() && layers.total !== 0) {
+                this.currentPage = 1;
+                this.doSearch();
+            }
+            this.$layerList.empty();
+            this.setPageButtons();
+            var self = this;
+            $.each(layers.rows, function (idx, layer) {
+                self.renderLayer(layer);
+            });
 
-        this.numberOfRecords = layers.total;
+        },
 
-         // if the start location is higher than the number of
-        // returned records, then reset the page number and redo the
-        // query
-        if (layers.total <= this.getStart() && layers.total !== 0) {
-            this.currentPage = 1;
+        doSearch: function () {
+
+            this.showMeta = this.$el.find(
+                '#show-meta-info:checkbox'
+            ).is(':checked');
+
+            // search the current bounding box
+            // min_x,min_y,max_x,max_y
+            var searchExtent = this.$el.find('#current-extent').is(':checked'),
+                timeExtent   = this.$el.find('#current-time').is(':checked'),
+                extent,
+                range,
+                queryParameters = {
+                    // hard code the type as it does not make sense to add a
+                    // map to another map
+                    bytype: 'layer',
+                    limit: this.pageSize,
+                    start: this.getStart(),
+                    sort: this.$el.find('#sortBy').val()
+                },
+                q  = this.$el.find('#query').val();
+
+            if (searchExtent) {
+                extent = this.geoExplorer.mapPanel.map.getExtent();
+                queryParameters.byextent = extent.toArray().join(',');
+            }
+
+            if (timeExtent) {
+                console.log('time range')
+            }
+
+            if (q) {
+                queryParameters.q = q;
+            }
+
+            this.httpFactory({
+                url: this.searchUrl,
+                data: queryParameters,
+                success: this.renderLayers.bind(this)
+            });
+
+        },
+
+        render: function () {
+            this.$el.append(this.template.apply());
+            this.enableTimeFilter();
+            this.$layerList = this.$el.find('#ms-search-layers ul');
+            this.adjustWidget();
+            // populate the widget when its rendered
             this.doSearch();
-        }
-        this.$layerList.empty();
-        this.setPageButtons();
-        var self = this;
-        $.each(layers.rows, function (idx, layer) {
-            self.renderLayer(layer);
-        });
-
-    };
-
-    LayerSearch.prototype.doSearch = function () {
-        this.showMeta = this.$el.find(
-            '#show-meta-info:checkbox'
-        ).is(':checked');
-
-        // search the current bounding box
-        // min_x,min_y,max_x,max_y
-        var searchExtent = this.$el.find('#current-extent').is(':checked'),
-            extent,
-            queryParameters = {
-                // hard code the type as it does not make sense to add a
-                // map to another map
-                bytype: 'layer',
-                limit: this.pageSize,
-                start: this.getStart(),
-                sort: this.$el.find('#sortBy').val()
-            },
-            q  = this.$el.find('#query').val();
-
-        if (searchExtent) {
-            extent = this.geoExplorer.mapPanel.map.getExtent();
-            queryParameters.byextent = extent.toArray().join(',');
+            this.setPageButtons();
+            $('body').append(this.$el);
+            return this;
         }
 
-        if (q) {
-            queryParameters.q = q;
-        }
-
-        this.httpFactory({
-            url: this.searchUrl,
-            data: queryParameters,
-            success: this.renderLayers.bind(this)
-        });
-
     };
 
-    LayerSearch.prototype.handlePage = function (opt, evt) {
-        evt.preventDefault();
-        this.setPageButtons();
-        this.currentPage = opt(this.currentPage);
-        this.doSearch();
-    };
-
-    LayerSearch.prototype.render = function () {
-
-        this.$el.append(this.template.apply());
-        this.$layerList = this.$el.find('#ms-search-layers ul');
-        this.adjustWidget();
-        // populate the widget when its rendered
-        this.doSearch();
-
-        this.setPageButtons();
-        $('body').append(this.$el);
-        return this;
-    };
 
     window.mapstory.LayerSearch = LayerSearch;
 
