@@ -88,8 +88,6 @@ THUMBNAIL_STORAGE = os.path.join(PROJECT_ROOT, 'thumbs')
 THUMBNAIL_URL = '/thumbs/'
 DEFAULT_MAP_THUMBNAIL = '%stheme/img/img_95x65.png' % STATIC_URL
 
-STATICFILES_STORAGE = 'staticfiles.storage.StaticFilesStorage'
-
 # Additional directories which hold static files
 STATICFILES_DIRS = [
     os.path.join(PROJECT_ROOT, 'media'),
