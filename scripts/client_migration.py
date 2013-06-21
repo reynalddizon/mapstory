@@ -13,6 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from django.db import transaction
 from django.core import serializers
+from django.conf import settings
 from geonode.maps.models import MapLayer
 from geonode.maps.models import Map
 
@@ -149,11 +150,26 @@ class RemoveMapProperties(ConfigMigration):
 class UseVirtualOWSURL(ConfigMigration):
     'update ows_url to point to virtual service'
 
-    query_set = MapLayer.objects.filter(ows_url='/geoserver/wms')
+    query_set = MapLayer.objects.exclude(ows_url__startswith='http').exclude(ows_url__isnull=True) 
 
     def process_model(self, m):
-        m.ows_url = '/geoserver/geonode/%s/wms' % m.name
-        print 'updating %s to use ows_url=%s (map=%s)' % (m.name, m.ows_url, m.map.id)
+	print 'processing %s, map=%s' % (m.name, m.map.id)
+	if m.name.find('geonode:') == 0:
+	    print 'updating name to remove prefix'
+	    m.name = m.name.replace('geonode:', '')
+		
+        m.ows_url = '%sgeonode/%s/wms' % (settings.GEOSERVER_BASE_URL, m.name)
+        print 'updating ows_url=%s' % m.ows_url
+	config = json.loads(m.source_params)
+	config['id'] = 'geonode:%s-search' % m.name
+	print 'updating source_params.id to %s' % config['id']
+	m.source_params = json.dumps(config)
+	config = json.loads(m.layer_params)
+	if 'capability' in config:
+	    config['capability']['prefix'] = m.name
+	    config['capability']['name'] = m.name
+	    print 'adjusted capability name and prefix to %s' % m.name
+    	    m.layer_params = json.dumps(config)
 
 
 def _migrations():
@@ -199,18 +215,14 @@ if __name__ == '__main__':
             print 'help requires a migration name'
             sys.exit(1)
     migrations = dict([ (v[0].lower(),v[1]) for v in _migrations() ])
-    migration_names = [ a for a in args if a[0] != '-' ]
-    if not migration_names:
+    migration_name = [ a for a in args if a[0] != '-' ]
+    migration_name = migration_name[0] if migration_name else None
+    if not migration_name:
         _print_help(parser, 1)
-    migration = None
-    for name in migration_names:
-        migration = migrations.get(name.lower(), None)
-        if migration:
-            migration = migration()
-            break
-    if migration is None:
-        print 'no migration not found'
+    if not migration_name.lower() in migrations:
+        print 'migration not found:', migration_name
         _print_help(parser, 1)
+    migration = migrations[migration_name.lower()]()
     migration.configure_options(parser)
     if help: _print_help(parser)
     try:
