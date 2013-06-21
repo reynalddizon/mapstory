@@ -159,8 +159,9 @@ if settings.SERVE_MEDIA:
         url(r'^media/(?P<path>.*)$', 'django.views.static.serve', {
             'document_root': settings.MEDIA_ROOT,
         }),
-        url(r'^static/(?P<path>.*)$', 'django.views.static.serve', {
-            'document_root': settings.STATIC_ROOT,
+        # this is here to allow testing staticfiles, don't remove (ian)
+        url(r'^static/(?P<path>.*)$','django.views.static.serve',{
+            'document_root' : settings.STATIC_ROOT,
         }),
         url(r'^thumbs/(?P<path>.*)$','django.views.static.serve',{
             'document_root' : settings.THUMBNAIL_STORAGE,

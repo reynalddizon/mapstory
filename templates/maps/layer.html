@@ -227,9 +227,7 @@
                                     <span class="caret"></span>
                                 </a>
                                 <ul class="dropdown-menu">
-                                    {% for l in layer.download_links %}
-                                    <li><a href="{{l.2}}" target="dlframe">{{l.1}}</a></li>
-                                    {% endfor %}
+                                    {% include "maps/_layer_download_links.html" %}
                                 </ul>
                             </div>
                             <hr>
