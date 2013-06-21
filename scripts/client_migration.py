@@ -40,15 +40,34 @@ class ConfigMigration(object):
             with open(backup_name, 'w') as fp:
                 fp.write(data)
             print 'backed up %s models to %s' % (self.query_set.count(), backup_name)
-
-    def restore(self):
-        'restore from serialized models'
+            
+    def _get_backup(self):
         backup_name = '%s_backup.json' % self.__class__.__name__
         if not os.path.exists(backup_name):
             raise MigrationException('no backup present')
-        for obj in serializers.deserialize("json", open(backup_name).read()):
-            print 'restored', obj
-            obj.save()
+        return serializers.deserialize("json", open(backup_name).read())
+
+    def restore(self):
+        'restore from serialized models'
+        if self.dry_run:
+            print 'DRY RUN!'
+        filters = [ f.split('=') for f in self.opts.filter ] if self.opts.filter else None
+        def get_rule(obj):
+            if filters:
+                stuff = dir(obj)
+                for f in filters:
+                    if not f[0] in stuff:
+                        print 'filter attr invalid, possible values are', stuff
+                return lambda o: all([ str(getattr(o,f[0])) == f[1] for f in filters])
+            else:
+                return lambda o: True
+        applies = None
+        for obj in self._get_backup():
+            applies = applies if applies else get_rule(obj.object)
+            if applies(obj.object):
+                print 'restoring', obj.object
+                if not self.dry_run:
+                    obj.save()
 
     def _configure(self, opts, args):
         'do general config'
@@ -67,8 +86,10 @@ class ConfigMigration(object):
     def _run(self):
         'general run'
         self.init()
-        if self.opts.ids:
-            self.query_set = self.query_set.filter(id__in=self.opts.ids.split(','))
+        if self.opts.filter:
+            for e in self.opts.filter:
+                k,v = e.split('=')
+                self.query_set = self.query_set.filter(**{k:v})
         if self.dry_run:
             msg = 'dry run, will not make any changes'
             print '*' * len(msg)
@@ -202,8 +223,9 @@ if __name__ == '__main__':
     parser.add_option('-f', '--force-backup',
         help='Overwrite any existing backup',
         action='store_true', default=False)
-    parser.add_option('-i', '--ids',
-        help='Limit the query further with provided comma-sep ids')
+    parser.add_option('-i', '--filter',
+        help='Limit the query further with provided keywords, ex. map__id=22 ',
+        action='append')
 
     args = sys.argv[1:]
     if not len(args):
