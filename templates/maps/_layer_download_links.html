@@ -1,0 +1,11 @@
+{% load cache %}
+
+{% cache cache_time download_links request.path %}
+
+{% for l in layer.download_links %}
+{% if l.0 not in "png,jpg,pdf,KML" %}
+<li><a href="{{l.2}}" target="dlframe">{{l.1}}</a></li>
+{% endif %}
+{% endfor %}
+
+{% endcache %}
