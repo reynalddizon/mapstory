@@ -354,16 +354,25 @@ function init(options) {
             Ext.get('show-files').removeClass('hide');
         }
 
+        function skipFile(zipEntry) {
+            return zipEntry.filename.indexOf('__MACOSX') >= 0; // yay
+        }
+
         zip.createReader(new zip.BlobReader(file), function(reader) {
             // get all entries from the zip
             reader.getEntries(function(entries) {
                 var i, e, ext, main;
                 zipFileNames = [];
                 for (i = 0; i < entries.length; i++) {
-                    zipFileNames.push(entries[i].filename);
+                    if (!skipFile(entries[i])) {
+                        zipFileNames.push(entries[i].filename);
+                    }
                 }
                 for (i = 0; i < entries.length; i++) {
                     e = entries[i];
+
+                    if (skipFile(e)) continue;
+                    
                     if (e.directory) {
                         directoryPresent = true;
                     }
