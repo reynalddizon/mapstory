@@ -22,7 +22,7 @@ $(function() {
             form.find('[name=name]').val(tile.find('.name').html());
             form.find('[name=href]').val(tile.find('.href').html());
             form.find('[name=order]').val(tile.find('.order').html());
-            form.find('[type=submit]').val('Edit');
+            form.find('[type=submit]').val('Update');
         }
         $("#delete").css('display', selected ? 'none' : 'block');
         tile.toggleClass('selected');
