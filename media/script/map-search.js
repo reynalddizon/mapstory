@@ -383,7 +383,7 @@ if (!Function.prototype.bind) {
             var extent;
             if (searchExtentP) {
                 extent = this.geoExplorer.mapPanel.map.getExtent().transform(
-                    this.map.getProjection(),
+                    this.geoExplorer.mapPanel.map.getProjection(),
                     "EPSG:4326"
                 );
 
