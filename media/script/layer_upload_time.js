@@ -25,6 +25,7 @@ Ext.onReady(function() {
     Ext.get('start_type').on('change',function() {
         var type = this.getValue(), selectID;
         hide("#start_att select");
+        clearAttribute(false, type);
         if (type == 'none') {            
             hide('#start_att');
         } else {
@@ -49,6 +50,7 @@ Ext.onReady(function() {
     Ext.get('end_type').on('change',function() {
         var type = this.getValue(), selectID;
         hide("#end_att select");
+        clearAttribute(true, type);
         if (type == 'none') {            
             hide('#end_att');
         } else {
@@ -162,6 +164,20 @@ Ext.onReady(function() {
         for (var i = 0; i < arguments.length; i++) {
             Ext.get(arguments[i]).removeClass('hide').show();
         }
+    }
+
+    function clearAttribute(endAttribute, exclude) {
+        Ext.select("select[@name*=attribute]").each(function(i) {
+            var name = i.dom.name, blank = name.indexOf(exclude) < 0;
+            if (endAttribute) {
+                blank = /^end/.test(name);
+            } else {
+                blank = ! /^end/.test(name);
+            }
+            if (blank) {
+                i.dom.value = '';
+            }
+        });
     }
 
     function enableCustom(selectID, inputID, formatEl) {

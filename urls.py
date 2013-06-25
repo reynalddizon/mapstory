@@ -49,13 +49,15 @@ class NamedRedirect(RedirectView):
             match =  urlresolvers.get_resolver('geonode.urls').resolve(req.path)
             return match.func(req, *args, **kw)
         else:
-            return RedirectView.post(req, *args, **kw)
+            return RedirectView.post(self, req, *args, **kw)
 
 
 urlpatterns = patterns('',
     # inject our form into these views
-    ('^profiles/edit$', 'profiles.views.edit_profile', {'form_class': ProfileForm,}),
-    ('^profiles/create', 'profiles.views.create_profile', {'form_class': ProfileForm,}),
+    ('^profiles/edit/$', 'profiles.views.edit_profile', {'form_class': ProfileForm,}),
+    ('^profiles/create/$', 'profiles.views.create_profile', {'form_class': ProfileForm,}),
+    # and redirect the profile list
+    url('^profiles/$', NamedRedirect.as_view(name='search_owners')),
 )
 
 urlpatterns += patterns('mapstory.views',
@@ -79,11 +81,14 @@ urlpatterns += patterns('mapstory.views',
     # don't use the old registration page
     url(r'^accounts/register/$', RedirectView.as_view(url='/account/signup/'), name='registration_register'),
 
+    (r'^admin/reports/', include('mapstory.reports.urls')),
+
     (r'', include('geonode.simplesearch.urls')), # put this first to ensure search urls priority
     (r'', include('geonode.urls')),
+
     url(r"^invites/", include("kaleo.urls")),
     url(r'^oembed/', include("oembed.urls")),
-    
+
     (r'^data/create_annotations_layer/(?P<mapid>\d+)$','create_annotations_layer'),
     url(r'^mapstory/donate/$',direct_to_template, {"template":"mapstory/donate.html"},name='donate'),
     url(r'^mapstory/thanks/$',direct_to_template, {"template":"mapstory/thanks.html"}),
@@ -105,7 +110,7 @@ urlpatterns += patterns('mapstory.views',
     url(r'^mapstory/by_storyteller_pager/(?P<user>\S+)/(?P<what>\S+)$','by_storyteller_pager',name='by_storyteller_pager'),
     url(r'^mapstory/related_mapstories_pager/(?P<map_id>\d+)$','related_mapstories_pager',name='related_mapstories_pager'),
     url(r'^data/style/upload$','upload_style',name='upload_style'),
-    
+
     # semi-temp urls
     url(r'^mapstory/user_activity_api$','user_activity_api',name='user_activity_api'),
     url(r'^mapstory/metadata/(?P<layer_id>\d+)$','layer_xml_metadata',name='layer_xml_metadata'),
@@ -164,11 +169,11 @@ if settings.SERVE_MEDIA:
         url(r'^media/(?P<path>.*)$', 'django.views.static.serve', {
             'document_root': settings.MEDIA_ROOT,
         }),
-        url(r'^static/(?P<path>.*)$', 'django.views.static.serve', {
-            'document_root': settings.STATIC_ROOT,
+        # this is here to allow testing staticfiles, don't remove (ian)
+        url(r'^static/(?P<path>.*)$','django.views.static.serve',{
+            'document_root' : settings.STATIC_ROOT,
         }),
         url(r'^thumbs/(?P<path>.*)$','django.views.static.serve',{
             'document_root' : settings.THUMBNAIL_STORAGE,
         })
     )
-    

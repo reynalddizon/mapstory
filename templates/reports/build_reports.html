@@ -1,0 +1,23 @@
+{% extends "reports/base.html" %}
+
+{% block title %}
+MapStory Admin
+{% endblock %}
+
+{% block content %}
+    <div>
+      <h3>Reports</h3>
+      <ul>
+          <li>
+              <a href="{% url reports_user_report %}">
+                  User Details CSV Report
+              </a>
+          </li>
+          <li>
+              <a href="{% url reports_activity %}">
+                  Activity Report
+              </a>
+          </li>
+      </ul>
+    </div>
+{% endblock %}

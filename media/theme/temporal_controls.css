@@ -5,7 +5,7 @@ div.x-slider-progress {
 }
 div.gx-overlay-playback .x-btn-icon .x-btn-large .x-btn-text, .x-btn-noicon .x-btn-large .x-btn-text{
     height: 50px;
-	width: 34px;
+    width: 34px;
 }
 .x-btn-icon .x-btn-medium .x-btn-text, .x-btn-noicon .x-btn-medium .x-btn-text {
     width: 34px;
@@ -18,26 +18,43 @@ div.gx-playback-wrap div.gx-overlay-playback{
     top: auto;
     width: 100% !important;
 }
-#map-bbar .x-toolbar, div.gx-playback-wrap .x-toolbar{
+#preview_map .x-toolbar, div.gx-playback-wrap .x-toolbar{
     background: rgba(11,11,11,0.6);
 }
 
+
 /*** General playback button properties ***/
-#map-bbar .x-btn-pressed td, div.gx-playback-wrap .x-btn-pressed td {
+.gx-overlay-playback .x-btn-pressed td, div.gx-playback-wrap .x-btn-pressed td {
 background-image: none;
 background-position: 0px -10px;
 /*background-color: rgba(255, 255, 255, 0.85);*/
 }
-#map-bbar .x-btn button, div.gx-playback-wrap .x-btn button{
-	background-position: 0px -10px;
+#map-bbar .x-btn button, .gx-overlay-playback .x-btn button{
+    background-position: 0px -10px;
 }
+
+#ms-toolbar button {
+    width: 80px;
+}
+
+#notes-button button {
+    background-position: 0px 0px !important;
+}
+.gxp-icon-addfeature {
+    background-position: 0px 0px !important;
+}
+
+.gxp-icon-editfeature {
+   background-position: 0px 0px !important;
+}
+
 #map-bbar .x-btn-over button, #map-bbar .x-btn-pressed td button,
 div.gx-playback-wrap .x-btn-over button, div.gx-playback-wrap .x-btn-pressed td button{
-	background-position: 0px -54px;
+    background-position: 0px -54px;
 }
 #map-bbar .x-btn-pressed td button:hover,
 div.gx-playback-wrap .x-btn-pressed td button:hover{
-	background-position: 0px -10px;
+
 }
 .x-btn button.gxp-icon-settings{
     background-image:url('img/icons/large/settings.png')
@@ -125,27 +142,27 @@ div.gx-playback-wrap .x-btn-pressed td button:hover{
 div.gx_timeslider, 
 div.gx_timeslider .x-slider-end, 
 div.gx_timeslider .x-slider-inner{
-	background-image:none;
+    background-image: none;
 }
 
 div.gx_timeslider {
-	border: 1px solid white;
-	padding-top: 4px;
-	padding-left: 12px;
+    border: 1px solid white;
+    padding-top: 4px;
+    padding-left: 12px;
 }
 
 div.gx_timeslider .x-slider-thumb{
 /*	background-image: url('img/icons/range_right.png'); */
-	background: 0 -44px no-repeat;
-	top: -14px;
-	margin-left: -5px;
+    background: 0 -44px no-repeat;
+    top: -14px;
+    margin-left: -5px;
     width: 24px;
     height: 50px;
     cursor: pointer;
 }
 
 div.gx_timeslider .x-slider-thumb{
-	background-image: url('img/icons/large/range_right.png');
+    background-image: url('img/icons/large/range_right.png');
 }
 
 div.gx_timeslider .x-slider-min-thumb{
@@ -160,4 +177,8 @@ div.gx_timeslider .x-slider-tail-thumb{
     background-image:url('img/icons/large/range_left.png');
     left:-14px;
     cursor: pointer;
+}
+
+#map-bbar .gx-overlay-playback  button {
+    width: 35px;
 }

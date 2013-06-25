@@ -9,6 +9,7 @@ from django.conf import settings
 from geonode.maps.models import Map
 from geonode.maps.models import Layer
 from geonode.maps.models import ALL_LANGUAGES
+from mapstory.models import ContactDetail
 from mapstory.models import Section
 from mapstory.models import Favorite
 from mapstory.models import PublishingStatus
@@ -309,11 +310,28 @@ def _activity_link(subject, plain_text=False):
 @register.simple_tag
 def activity_item(action, show_actor_link=True, plain_text=False):
     link_tmpl = _pt_link_template if plain_text else _link_template
-    username = action.actor.get_full_name() or action.actor.username
+    actor = action.actor
+    # this can happen because of a lack of cascade on content type - i.e:
+    # a profile is deleted but the action remains
+    if actor is None:
+        return ''
+    if isinstance(actor, ContactDetail):
+        actor = action.actor.user
+    username = actor.get_full_name() or actor.username
     if show_actor_link:
         username = link_tmpl % (absolutize(action.actor.get_absolute_url()), username)
     subject = action.action_object
-    object_name = subject.__class__._meta.object_name
+    object_name = None
+    subject_text = None
+    if subject is None and isinstance(actor, User):
+        subject_text = ''
+        if action.verb == 'updated':
+            subject_text = ' his/her profile '
+    elif subject:
+        object_name = subject.__class__._meta.object_name
+    else:
+        # likewise - missing content object
+        return ''
     verb = action.verb
     if object_name == 'Comment':
         commented_obj = subject.content_object
@@ -323,21 +341,21 @@ def activity_item(action, show_actor_link=True, plain_text=False):
             return ''
         if action.target:
             comment_link = link_tmpl % (absolutize(commented_obj.get_absolute_url()) + "#comment-%s" % subject.id, ' a comment')
-            subject = 'to a %s on %s' % (comment_link, _activity_link(commented_obj, plain_text))
+            subject_text = 'to a %s on %s' % (comment_link, _activity_link(commented_obj, plain_text))
         else:
-            subject = 'on ' + _activity_link(commented_obj, plain_text)
+            subject_text = 'on ' + _activity_link(commented_obj, plain_text)
     elif object_name == 'Rating':
         verb = 'gave'
-        subject = '%s a rating of %s' % (_activity_link(subject.content_object,plain_text), subject.rating)
-    else:
-        subject = _activity_link(subject)
+        subject_text = '%s a rating of %s' % (_activity_link(subject.content_object,plain_text), subject.rating)
+    elif subject_text is None:
+        subject_text = _activity_link(subject)
     
     ctx = dict(
         verb= verb,
         timestamp = action.timestamp,
         ago = action.timesince,
         user = username,
-        subject = subject
+        subject = subject_text
     )
     template = 'mapstory/_activity_item.%s' % ('txt' if plain_text else 'html')
     # user, verb, subject, timestamp, ago

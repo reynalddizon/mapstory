@@ -15,6 +15,9 @@
 
 {% block main %}
 <div class="twocol">
+{% if possible_data_problems %}
+<div class="msg alert alert-error">{{ possible_data_problems }}</div>
+{% endif %}
 {% if present_choices %}
 <h2>Specify Geometry Columns for "{{ layer_name }}"</h2>
 <p>Please indicate which columns contain the latitude and longitude

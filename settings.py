@@ -88,8 +88,6 @@ THUMBNAIL_STORAGE = os.path.join(PROJECT_ROOT, 'thumbs')
 THUMBNAIL_URL = '/thumbs/'
 DEFAULT_MAP_THUMBNAIL = '%stheme/img/img_95x65.png' % STATIC_URL
 
-STATICFILES_STORAGE = 'staticfiles.storage.StaticFilesStorage'
-
 # Additional directories which hold static files
 STATICFILES_DIRS = [
     os.path.join(PROJECT_ROOT, 'media'),
@@ -138,6 +136,7 @@ TEMPLATE_DIRS = (
 
 # The FULLY QUALIFIED url to the GeoServer instance for this GeoNode.
 GEOSERVER_BASE_URL = "http://localhost:8001/geoserver/"
+INTERNAL_GEOSERVER_BASE_URL = GEOSERVER_BASE_URL
 
 # The username and password for a user that can add and edit layer details on GeoServer
 GEOSERVER_CREDENTIALS = "geoserver_admin", SECRET_KEY 
@@ -351,6 +350,8 @@ ABSOLUTE_URL_OVERRIDES = {
 }
 
 ENABLE_SOCIAL_LOGIN = False
+
+USE_GEONETWORK = False
 
 try:
     from local_settings import *

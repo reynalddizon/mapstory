@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+<style type='text/css'>
+    #report-form {
+        border: 1px solid black;
+        padding: 1em;
+        margin: 1em 0;
+    }
+</style>
+{% endblock %}
+
+{% block bodyclass %}dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h2>{% block report_header %}{% endblock %}</h2>
+    <div id="report-form">
+    {% block report_form %}
+    {% endblock %}
+    </div>
+    <div id="report-output">
+    {% block report_output %}
+    {% endblock %}
+    </div>
+</div>
+{% endblock %}

@@ -186,6 +186,8 @@ def map_tile(req, mapid):
     obj = get_object_or_404(Map,pk=mapid)
     return _render_map_tile(obj,req=req)
 
+
+@login_required
 def favoriteslinks(req):
     ident = req.GET['ident']
     layer_or_map, id = ident.split('-')
@@ -202,7 +204,8 @@ def favoriteslinks(req):
         "maps" : maps,
         "user" : req.user
     });
-    
+
+
 @login_required
 def favoriteslist(req):
     ctx = {

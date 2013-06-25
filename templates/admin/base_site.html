@@ -12,7 +12,8 @@ MapStory Admin
 
 {% block nav-global %}
 <div style="padding-left:10px">
-    {% admin_manual %}
+    {% admin_manual %} -|-
+    <a href="{% url reports_list %}">Reports</a>
 </div>
 {{ block.super }}
 {% endblock %}

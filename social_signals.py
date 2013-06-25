@@ -23,6 +23,7 @@ from social_auth.backends.twitter import TwitterBackend
 from social_auth.backends import google
 import datetime
 import urllib2
+import re
 from urlparse import urlparse
 import logging
 
@@ -36,13 +37,14 @@ def activity_summary(actions, plain_text=False):
 def batch_notification(days=1):
     for u in User.objects.filter(useractivity__notification_preference='S'):
         day_ago = datetime.datetime.now() - datetime.timedelta(days=days)
-        actions = u.useractivity.other_actor_actions.filter(timestamp_gte=day_ago)
+        actions = u.useractivity.other_actor_actions.filter(timestamp__gte=day_ago)
         if not actions: continue
+        _logger.info('sending %d notifications to %s', len(actions), u)
         send_html_mail("[MapStory] Daily Summary Notification",
                        message=activity_summary(actions, plain_text=True),
                        message_html=activity_summary(actions),
                        from_email="do-not-reply@mapstory.org", 
-                       recipient_list=[user.email])
+                       recipient_list=[u.email])
 
 
 def notify_handler(sender, instance, action, model, pk_set, **kwargs):
@@ -78,6 +80,14 @@ def action(actor, verb, action_object=None, target=None, public=True):
     return newaction
 
 
+def _is_annotations_layer(obj):
+    if isinstance(obj, Layer):
+        from django.conf import settings # circular deps
+        for exc in settings.LAYER_EXCLUSIONS:
+            if re.search(exc, obj.name):
+                return True
+    return False
+
 def action_handler(create_verb='created', update_verb='updated', provide_user=True):
     def handler(sender, instance, created, **kwargs):
         if created and not create_verb:
@@ -93,10 +103,13 @@ def action_handler(create_verb='created', update_verb='updated', provide_user=Tr
         action_object = None
         if provide_user:
             actor = user()
-            if not actor:
+            if not actor or actor.is_anonymous():
                 # a non request caused this
                 return
             action_object = instance
+            if _is_annotations_layer(action_object):
+                # for now, could create an action for the map
+                return
         action(actor, verb=active_verb, action_object=action_object)
     return handler
 
@@ -142,6 +155,8 @@ def comment_handler(sender, instance, created, **kwargs):
 def publishing_handler(sender, instance, created, **kw):
     if instance.status == 'Public':
         what = instance.map or instance.layer
+        if _is_annotations_layer(what):
+            return
         action(what.owner, 'published', action_object=what)
         layers = getattr(what, 'local_layers', [])
         for l in layers:

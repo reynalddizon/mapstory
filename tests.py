@@ -8,7 +8,7 @@ from geonode.maps.models import Map
 from geonode.maps.models import MapLayer
 from geonode.maps.models import Thumbnail
 from geonode.simplesearch import models as simplesearch
-import mapstory.social_signals # this just needs activating but is not used
+from mapstory import social_signals # this just needs activating but is not used
 from mapstory import forms
 from mapstory.models import UserActivity
 from mapstory.models import ProfileIncomplete
@@ -21,6 +21,10 @@ from agon_ratings.models import Rating
 from actstream.models import Action
 from dialogos.models import Comment
 from mailer import engine as email_engine
+
+from datetime import timedelta
+import logging
+import re
 
 # these can just get whacked
 simplesearch.map_updated = lambda **kw: None
@@ -85,6 +89,18 @@ class SocialTest(TestCase):
         self.assertEqual(1, len(actions))
         self.assertEqual('admin added layer2 Layer on map1 by admin 0 minutes ago', str(actions[0]))
 
+    def test_annotations_filtering(self):
+        bobby_layer = Layer.objects.create(owner=self.bobby, name='_map_42_annotations',typename='doesntmatter')
+        # lets publish it
+        bobby_layer.publish.status = 'Public'
+        bobby_layer.publish.save()
+        actions = self.bobby.actor_actions.all()
+        # no record
+        self.assertEqual(0, len(actions))
+        bobby_layer.save()
+        # no record again
+        self.assertEqual(0, len(actions))
+
     def test_activity_item_tag(self):
         lyr = Layer.objects.create(owner=self.bobby, name='layer1',typename='layer1', title='example')
         lyr.publish.status = 'Public'
@@ -122,7 +138,8 @@ class SocialTest(TestCase):
         
     def test_no_notifications(self):
         prefs = UserActivity.objects.get(user=self.bobby)
-        prefs.notification_preference = 'S'
+        prefs.notification_preference = 'N'
+        prefs.save()
         
         layer = Layer.objects.create(owner=self.bobby, name='layer1',typename='layer1')
         comment_on(layer, self.admin, "This is great")
@@ -133,6 +150,36 @@ class SocialTest(TestCase):
         
         mail = self.drain_mail_queue()
         self.assertEqual(1, len(mail))
+
+    def test_batch_mailer(self):
+        prefs = UserActivity.objects.get(user=self.bobby)
+        prefs.notification_preference = 'S'
+        prefs.save()
+
+        layer = Layer.objects.create(owner=self.bobby, name='layer1',typename='layer1')
+        comment_on(layer, self.admin, "This is great")
+        comment_on(layer, self.admin, "This is great")
+
+        messages = []
+        def handle(self, record):
+            messages.append(record)
+        handler = type('handler', (logging.Handler,), {'handle':handle})()
+        handler.setLevel(logging.INFO)
+        logger = logging.getLogger("mapstory.social_signals")
+        logger.addHandler(handler)
+
+        social_signals.batch_notification()
+
+        self.assertEqual('2', re.search('\d', messages[0].getMessage()).group())
+
+        action = prefs.other_actor_actions.all()[0]
+        action.timestamp = action.timestamp - timedelta(days = 1)
+        action.save()
+
+        social_signals.batch_notification()
+        self.assertEqual('1', re.search('\d', messages[1].getMessage()).group())
+
+        logger.removeHandler(handler)
 
 
 def comment_on(obj, user, comment, reply_to=None):

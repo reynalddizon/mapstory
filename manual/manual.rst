@@ -146,6 +146,22 @@ Relevant time periods
 
 A feature can currently support either one or two timestamp attributes. If a single attribute is used, this is interpreted by MapStory to mean that the feature is displayed at a single point in time. If two attributes are used, the attributes represent the beginning and ending of the period in which the feature in considered displayed. The decision on whether to utilize an end timestamp is specific to your data and story.
 
+.. _prep.raster:
+
+Raster file formatting
+~~~~~~~~~~~~~~~~~~~~~~
+
+A zip file containing tiff files with a timestamp in the filename may be uploaded. ISO formatted timestamps should be recognized. For example::
+
+  XYZ_1990_ABC.tif
+  XYZ1991ABC.tif
+  XYZ-1992-ABC.tif
+
+The above would be automatically recognized as having a timestamp of 1990, 1991, and 1992 respectively.
+For best results, ensure the file names to do not vary except with respect to the timestamp.
+The example above is to illustrate that all variations will be detected.
+
+
 .. _prep.filetypes:
 
 Supported Files
@@ -155,6 +171,9 @@ MapStory can load the following file types:
 
 * CSV (comma-separated value)—These non-spatial files can be loaded when they contain columns with latitude and longitude values.
 * Shapefile—MapStory can read any standard shapefile, including an optional PRJ (projection file).
+* Raster files—(**Experimental**) MapStory can accept a zip file containing time-stamped TIFF, JPG, or PNG files.
+
+As noted, raster support is experimental. Files must either contain the approprate spatial metdata (as GeoTiff does) or have the appropriate side-car files (.prj, world-file, etc.).
 
 .. _prep.filetypes.archive:
 

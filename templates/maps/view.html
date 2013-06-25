@@ -10,24 +10,45 @@
 {% include "geonode/app_header.html" %}
 {% include "geonode/geo_header.html" %}
 <link rel="stylesheet" type="text/css" href="{% static "theme/access-theme-shim.css"%}" />
+<link rel="stylesheet" type="text/css" href="{% static "theme/map-search.css"%}"/>
 <link rel="stylesheet" type="text/css" href="{% geonode_static "theme/ux/colorpicker/color-picker.ux.css" %}" />
 <style type="text/css">
     #templates { display: none; }
     .gxp-addlayers-sourceselect { display: none; }
 </style>
 
-<script src="{% geonode_static "script/PrintPreview.js" %}"></script>
-<link rel="stylesheet" type="text/css" href="{% geonode_static "externals/PrintPreview/resources/css/printpreview.css" %}" />
-<script src="{{GEOSERVER_BASE_URL}}pdf/info.json?var=printCapabilities" type="text/javascript"></script>
+
 {{ block.super }}
+
+
+<script src="{% static "script/jquery-1.7.1.min.js" %}"></script>
+<script type="text/javascript" src="{% static "script/jquery.expander.min.js" %}"></script>
+<script src="{% static "script/map-search.js"%}"></script>
+
 
 <script type="text/javascript">
 {% autoescape off %}
 
 var app = new GeoExplorer();
 
+// when the add layers widget on the page load
+$(function () {
+   // make sure we are on the maps new page
+   if (window.location.pathname.match('/maps/new')) {
+
+       var search = new window.mapstory.LayerSearch({
+           geoExplorer: app,
+           searchUrl: '/search/api'
+       }).render();
+
+   }
+
+});
+
+
 // template markup specific javascript
 (function() {
+
     var titleTemplate, moreInfoTemplate, permalinkTemplate;
     function permalink(id) {
         return permalinkTemplate.apply({
@@ -47,11 +68,12 @@ var app = new GeoExplorer();
             Ext.DomHelper.overwrite(Ext.get("map-title-header"), titleTemplate.apply({title: app.about.title}));
         },
         "saved": function(id) {
+            var link = permalink(app.mapID);
             //reset title header
-            Ext.DomHelper.overwrite(Ext.get("map-title-header"), titleTemplate.apply({title: app.about.title}))
+            Ext.DomHelper.overwrite(Ext.get("map-title-header"), titleTemplate.apply({title: app.about.title, permalink: link}))
 
             //reset more info link
-            Ext.DomHelper.overwrite(Ext.get("more-info"), moreInfoTemplate.apply({permalink: permalink(app.mapID)}))
+            Ext.DomHelper.overwrite(Ext.get("more-info"), moreInfoTemplate.apply({permalink: link}))
         },
         scope: {}
     });
@@ -86,6 +108,8 @@ gxp.form.FontComboBox.prototype.defaultFont = 'Arial';
 </div>
 <div id="templates">
   <div id="more-info-tpl"><a class='link' href='{permalink}'>{% trans "View info" %}</a></div>
-  <div id="title-tpl"><a class='maplist' href='{% url maps_search %}'>{% trans "Maps" %}</a> / <strong>{title}</strong></div>
+  <div id="title-tpl"><a class='maplist' href='{% url search_maps %}'>{% trans "Maps" %}</a> / <a href="{permalink}">{title}</a></div>
 </div>
+{% comment %}new map view has no map{% endcomment %}
+{% if map %}{% map_view_hitcount map %}{% endif %}
 {% endblock %}

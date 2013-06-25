@@ -261,6 +261,7 @@
              </gmd:CI_OnlineResource>
            </gmd:onLine>
            {% for extension, format, link in layer.download_links %}
+           {% if extension not in "png,jpg,pdf,KML" %}
            <gmd:onLine>
              <gmd:CI_OnlineResource>
                <gmd:linkage xmlns:srv="http://www.isotc211.org/2005/srv" xmlns:gmx="http://www.isotc211.org/2005/gmx">
@@ -277,6 +278,7 @@
                </gmd:description>
              </gmd:CI_OnlineResource>
            </gmd:onLine>
+           {% endif %}
            {% endfor %}
          </gmd:MD_DigitalTransferOptions>
        </gmd:transferOptions>

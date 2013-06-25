@@ -503,6 +503,13 @@ h4 {
     margin-bottom:4px;
 }
 
+#beta {
+    font-size: 16px;
+    color: white;
+    display: block;
+    padding-top: 11px;
+}
+
 #crossbar {
     border-bottom: 0;
     color: white;

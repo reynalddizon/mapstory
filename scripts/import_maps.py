@@ -14,19 +14,25 @@ import tempfile
 from geonode.maps.models import Map
 from geonode.maps.models import MapLayer
 
+from mapstory.models import PublishingStatus
+
 from import_layer import import_layer
 from update_thumb_specs import make_thumbnail_updater
 from update_thumb_specs import make_maplayer_updater
 
-def import_maps(gs_data_dir, conn, zipfile,
+def import_maps(conn, zipfile,
                 no_password=False, chown_to=None, do_django_layer_save=True,
                 from_string=None, to_string=None):
+    # unless specified, assume importing to local setup
+    if to_string is None:
+        to_string = settings.SITEURL
+
     tempdir = tempfile.mkdtemp()
     temppath = lambda *p: os.path.join(tempdir, *p)
     os.system('unzip %s -d %s' % (zipfile, tempdir))
 
     for layer_name in os.listdir(temppath('layers')):
-        import_layer(gs_data_dir, conn,
+        import_layer(conn,
                      temppath('layers', layer_name), layer_name,
                      no_password, chown_to, do_django_layer_save)
         conn.commit()
@@ -35,7 +41,8 @@ def import_maps(gs_data_dir, conn, zipfile,
 
     def import_models(path, add_owner=False):
         with open(path, 'r') as f:
-            models = serializers.deserialize('json', f)
+            # deserialize returns a generator, read everything
+            models = list(serializers.deserialize('json', f))
             for model in models:
                 if add_owner:
                     owner = User.objects.filter(pk=model.object.owner_id)
@@ -43,6 +50,7 @@ def import_maps(gs_data_dir, conn, zipfile,
                         model.object.owner = User.objects.get(pk=1)
 
                 model.save()
+                print 'imported %s=%s' % (model.object.__class__.__name__, model.object.pk)
             return models
 
     print 'importing maps'
@@ -50,11 +58,17 @@ def import_maps(gs_data_dir, conn, zipfile,
     print 'importing map layers'
     maplayer_models = import_models(temppath('maplayers.json'))
     print 'importing users'
-    map_comment_models = import_models(temppath('comment_users.json'))
+    import_models(temppath('comment_users.json'))
     print 'importing map comments'
-    map_comment_models = import_models(temppath('map_comments.json'))
+    import_models(temppath('map_comments.json'))
+
     print 'importing map publishing status'
-    map_comment_models = import_models(temppath('map_publishing_status.json'))
+    # make sure we don't end up with duplicates, just copy the status value
+    with open(temppath('map_publishing_status.json'), 'r') as f:
+        models = list(serializers.deserialize('json', f))
+    for model in models:
+        real_object = model.object
+        PublishingStatus.objects.set_status(real_object.map or real_object.layer, real_object.status)
 
     print 'importing map thumb specs'
     with open(temppath('map_thumb_specs.json')) as f:
@@ -74,6 +88,8 @@ def import_maps(gs_data_dir, conn, zipfile,
 
     if from_string is not None and to_string is not None:
         print 'adjusting maplayer params'
+        if to_string[-1] != '/':
+            to_string += '/'
         updater = make_maplayer_updater(from_string, to_string)
         for maplayer_model in maplayer_models:
             try:
@@ -84,12 +100,7 @@ def import_maps(gs_data_dir, conn, zipfile,
                 updater(maplayer)
 
 if __name__ == '__main__':
-    gs_data_dir = '/var/lib/geoserver/geonode-data/'
     parser = OptionParser('usage: %s [options] maps_import_file.zip' % sys.argv[0])
-    parser.add_option('-d', '--data-dir',
-                      dest='data_dir',
-                      default=gs_data_dir,
-                      help='geoserver data dir')
     parser.add_option('-P', '--no-password',
                       dest='no_password', action='store_true',
                       help='Add the --no-password option to the pg_restore'
@@ -125,9 +136,6 @@ if __name__ == '__main__':
     if len(args) != 1:
         parser.error('please provide the maps import zip file')
     
-    if not os.path.exists(options.data_dir):
-        parser.error("geoserver data directory %s not found" % options.data_dir)
-
     conn = psycopg2.connect("dbname='" + settings.DB_DATASTORE_DATABASE + 
                             "' user='" + settings.DB_DATASTORE_USER + 
                             "' password='" + settings.DB_DATASTORE_PASSWORD + 
@@ -135,7 +143,7 @@ if __name__ == '__main__':
                             " host='" + settings.DB_DATASTORE_HOST + "'")
 
     zipfile = args[0]
-    import_maps(options.data_dir, conn, zipfile,
+    import_maps(conn, zipfile,
                 options.no_password, options.chown_to,
                 options.do_django_layer_save,
                 options.from_string, options.to_string)

@@ -35,7 +35,7 @@ $(function() {
         });
     });
 
-    (function adjustStoryTellers() {
+    (function () {
         //+ Jonas Raoni Soares Silva
         //@ http://jsfromhell.com/array/shuffle [v1.0]
         function shuffle(o){ //v1.0
@@ -45,13 +45,13 @@ $(function() {
         var height = 0, els = $(".storyteller");
         shuffle(els);
         els.appendTo(els.parent());
-        els.slice(0,3).each(function(i, e) {
-            height += $(e).outerHeight();
+        els.slice(0,4).each(function(i, e) {
+            height += $(e).outerHeight() + (+$(e).css('margin-bottom').replace('px', ''))
         });
         els.parent('.scroll-container').height(height);
     })();
     
-    adjustSizes();
+
     
     
 });

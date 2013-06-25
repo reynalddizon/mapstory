@@ -35,6 +35,8 @@ function init(options) {
             case 'tif':
             case 'tiff':
             case 'geotiff':
+            case 'png':
+            case 'jpg':
                 break
             default:
                 ext = null;
@@ -50,7 +52,7 @@ function init(options) {
         allowBlank: false,
         listeners: listeners,
         validator: function(name) {
-            return check_valid_ext(name) != null;
+            return check_valid_ext(name) != null && name.length <= 64;
         }
     });
 
@@ -132,12 +134,14 @@ function init(options) {
     var shpMsg = containerFromDom('shp-msg').hide();
     var csvMsg = containerFromDom('csv-msg').hide();
     var unknownMsg = containerFromDom('unknown-msg').hide();
+    var tooLongMsg = containerFromDom('too-long-msg').hide();
 
     form_fields.push(base_file);
     form_fields.push(zipMsg);
     form_fields.push(shpMsg);
     form_fields.push(csvMsg);
     form_fields.push(unknownMsg);
+    form_fields.push(tooLongMsg);
     form_fields.push(sld_file);
     
     if (options.is_featuretype) {
@@ -221,6 +225,12 @@ function init(options) {
         csvMsg.hide();
         zipMsg.hide();
         unknownMsg.hide();
+        tooLongMsg.hide();
+        if (base_file.getValue().length > 64) {
+            tooLongMsg.show();
+            checkFormValid();
+            return;
+        }
         switch (ext) {
             case 'shp':
                 enable_shapefile_inputs();
@@ -235,6 +245,8 @@ function init(options) {
             case 'tif':
             case 'tiff':
             case 'geotiff':
+            case 'png':
+            case 'jpg':
                 break;
             default:
                 unknownMsg.show();
@@ -298,7 +310,7 @@ function init(options) {
     
     function isMainFile(name) {
         var ext = getExtension(name);
-        return /^(csv|zip|shp|tif|tiff|geotiff)$/i.test(ext);
+        return /^(csv|zip|shp|tif|tiff|geotiff|png|jpg)$/i.test(ext);
     }
     
     function isShapefileComponent(ext) {

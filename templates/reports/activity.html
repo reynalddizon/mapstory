@@ -1,0 +1,18 @@
+{% extends "reports/base.html" %}
+{% load mapstory_tags %}
+
+{% block report_header %}Map/Layer User Activity{% endblock %}
+
+{% block report_form %}
+    {% if next_page %}
+    <a href='?page={{ next_page }}'>Next Page</a>
+    {% else %}
+    <span>No More Results</span>
+    {% endif %}
+{% endblock %}
+
+{% block report_output %}
+    {% for a in actions %}
+    <div>{% activity_item a %}</div>
+    {% endfor %}
+{% endblock %}
