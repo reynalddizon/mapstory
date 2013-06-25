@@ -279,14 +279,11 @@ var mapstory = mapstory || {};
         this.$el.find('#sortBy').change(doSearch);
         this.$el.find('#bbox-limit').change(doSearch);
         this.$el.find('#show-meta-info').change(doSearch);
-        this.$el.find('form').keypress(function (evt) {
+        this.$el.find('form').submit(function (evt) {
             // prevent the default event on the return key and redo
             // the query
-            if (evt.which === 13) {
-                evt.preventDefault();
-                doSearch();
-            }
-
+            evt.preventDefault();
+            doSearch();
         });
         // TODO, these seem very similar see how to combine them
         this.$el.find('#prev').click(Ext.createDelegate(function (event) {
