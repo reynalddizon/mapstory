@@ -32,8 +32,13 @@ owner_query_fields = ['blurb','organization','biography']
     
 def owner_query(query, kw):
     if kw['bysection']: return None
+    superuser = kw['user'] and kw['user'].is_superuser
+    # make sure any 'bad' profiles get ignored
     q = ContactDetail.objects.select_related().filter(user__isnull=False)
-    q = q.exclude(user__id__in=ProfileIncomplete.objects.all().values('user'))
+    # not super users cannot see incomplete profiles
+    if not superuser:
+        q = q.exclude(user__id__in=ProfileIncomplete.objects.all().values('user'))
+    # don't fetch these, they won't be used
     q = q.defer('blurb', 'biography')
     return q
 
