@@ -99,6 +99,7 @@ class ContactDetailAdmin(admin.ModelAdmin):
     pass
 
 class OrgAdmin(admin.ModelAdmin):
+    exclude = ('links','ribbon_links')
     def get_form(self, request, obj=None, **kwargs):
         if not obj:
             self.fields = ('organization',)
