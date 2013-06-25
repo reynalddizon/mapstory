@@ -242,14 +242,9 @@ if (!Function.prototype.bind) {
         this.$el.on('change', 'input', doSearch);
         this.$el.on('click', '#prev', this.handlePage.bind(this, dec));
         this.$el.on('click', '#next', this.handlePage.bind(this, inc));
-        this.$el.on('keypress', 'form', function (evt) {
-            // prevent the default event on the return key and redo
-            // the query
-            if (evt.which === 13) {
-                evt.preventDefault();
-                doSearch();
-            }
-
+        this.$el.on('submit', 'form', function (evt) {
+            evt.preventDefault();
+            doSearch();
         });
 
 
