@@ -281,9 +281,11 @@ if (!Function.prototype.bind) {
          */
         isTimeLayer: function (evt) {
             var layer = evt.layer;
+
             if (layer.metadata && layer.metadata.timeInfo) {
                 this.timeEnable = true;
                 this.findTimeControl();
+                this.enableTimeFilter();
             }
         },
 
@@ -380,16 +382,42 @@ if (!Function.prototype.bind) {
 
         },
 
+        // search the current bounding box
+        // min_x,min_y,max_x,max_y
+        doSearchExtent: function (query, searchExtentP) {
+            var extent;
+            if (searchExtentP) {
+                extent = this.geoExplorer.mapPanel.map.getExtent();
+                query.byextent = extent.toArray().join(',');
+            }
+            return query;
+        },
+
+        formatDate: function (date) {
+            date = new Date(date);
+            return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
+        },
+
+        // search api uses byperiod
+        doSearchTime: function (query, searchTimeP) {
+            var time, range, start, end;
+            if (searchTimeP) {
+                range = this.timeControl.animationRange;
+                start = this.formatDate(range[0]);
+                end   = this.formatDate(range[1]);
+                query.byperiod = encodeURI([start, end]);
+            }
+            return query;
+        },
+
         doSearch: function () {
 
             this.showMeta = this.$el.find(
                 '#show-meta-info:checkbox'
             ).is(':checked');
 
-            // search the current bounding box
-            // min_x,min_y,max_x,max_y
             var searchExtent = this.$el.find('#current-extent').is(':checked'),
-                timeExtent   = this.$el.find('#current-time').is(':checked'),
+                searchTime   = this.$el.find('#current-time').is(':checked'),
                 extent,
                 range,
                 queryParameters = {
@@ -402,14 +430,8 @@ if (!Function.prototype.bind) {
                 },
                 q  = this.$el.find('#query').val();
 
-            if (searchExtent) {
-                extent = this.geoExplorer.mapPanel.map.getExtent();
-                queryParameters.byextent = extent.toArray().join(',');
-            }
-
-            if (timeExtent) {
-                console.log('time range')
-            }
+            this.doSearchExtent(queryParameters, searchExtent);
+            this.doSearchTime(queryParameters, searchTime);
 
             if (q) {
                 queryParameters.q = q;
