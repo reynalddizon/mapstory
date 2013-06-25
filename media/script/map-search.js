@@ -382,8 +382,12 @@ if (!Function.prototype.bind) {
         doSearchExtent: function (query, searchExtentP) {
             var extent;
             if (searchExtentP) {
+                // it seems like the only safe way to access the map
+                // object is via this path.
+                // TODO, find a way to save a reference to the map
+                // object
                 extent = this.geoExplorer.mapPanel.map.getExtent().transform(
-                    this.map.getProjection(),
+                    this.geoExplorer.mapPanel.map.getProjection(),
                     "EPSG:4326"
                 );
 
