@@ -387,7 +387,11 @@ if (!Function.prototype.bind) {
         doSearchExtent: function (query, searchExtentP) {
             var extent;
             if (searchExtentP) {
-                extent = this.geoExplorer.mapPanel.map.getExtent();
+                extent = this.map.getExtent().transform(
+                    this.map.getProjection(),
+                    "EPSG:4326"
+                );
+
                 query.byextent = extent.toArray().join(',');
             }
             return query;
