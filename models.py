@@ -28,6 +28,7 @@ from geonode.core.models import AUTHENTICATED_USERS
 from geonode.core.models import ANONYMOUS_USERS
 from geonode.maps.models import Contact
 from geonode.maps.models import Map
+from geonode.maps.models import MapLayer
 from geonode.maps.models import Layer
 from geonode.maps.models import LayerManager
 from geonode.upload.signals import upload_complete
@@ -115,6 +116,11 @@ def get_related_stories(obj):
         if isinstance(obj, Map):
             maps = maps.exclude(id=obj.id)
     return maps
+
+
+def get_maps_using_layers_of_user(user):
+    return MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('name')) | \
+           MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('typename'))
 
 
 class SectionManager(models.Manager):
@@ -439,9 +445,27 @@ class FavoriteManager(models.Manager):
     def favorites_for_user(self, user):
         return self.filter(user=user)
 
+    def _favorite_ct_for_user(self, user, model):
+        content_type = ContentType.objects.get_for_model(model)
+        return self.favorites_for_user(user).filter(content_type=content_type).prefetch_related('content_object')
+
     def favorite_maps_for_user(self, user):
-        content_type = ContentType.objects.get_for_model(Map)
-        return self.favorites_for_user(user).filter(content_type=content_type)
+        return self._favorite_ct_for_user(user, Map)
+
+    def favorite_layers_for_user(self, user):
+        return self._favorite_ct_for_user(user, Layer)
+
+    def favorite_users_for_user(self, user):
+        return self._favorite_ct_for_user(user, User)
+
+    def bulk_favorite_objects(self, user):
+        'get the actual favorite objects for a user as a dict by content_type'
+        favs = {}
+        for m in (Map, Layer, User):
+            ct = ContentType.objects.get_for_model(m)
+            f = self.favorites_for_user(user).filter(content_type=ct)
+            favs[ct.name] = m.objects.filter(id__in = f.values('object_id'))
+        return favs
 
     def create_favorite(self, content_object, user):
         content_type = ContentType.objects.get_for_model(type(content_object))

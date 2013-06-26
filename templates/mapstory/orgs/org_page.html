@@ -44,41 +44,56 @@
 </div>
 
 <div>
-    <div class="tabbable">
+    <div id="org-tabs" class="tabbable">
         <ul class="nav nav-tabs fancyfont">
+            {% if favs.map %}
             <li class="active"><a href="#1" data-toggle="tab">MAPSTORIES</a></li>
+            {% endif %}
+            {% if favs.layer %}
             <li><a href="#2" data-toggle="tab">STORYLAYERS</a></li>
+            {% endif %}
+            {% if favs.user %}
             <li><a href="#3" data-toggle="tab">STORYTELLERS</a></li>
+            {% endif %}
+            {% if using %}
             <li><a href="#4" data-toggle="tab">STORYLAYERS USED BY</a></li>
+            {% endif %}
         </ul>
         <div class="tab-content box">
+            {% if favs.map %}
             <div class="tab-pane active" id="1">
                 <div class="article-list">
                     <ul>
-                        {% for m in maps %}
+                        {% for m in favs.map %}
                         <li>{% map_info_tile m %}</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
+            {% if favs.map %}
             <div class="tab-pane" id="2">
                 <div class="article-list">
                     <ul>
-                        {% for m in layers %}
+                        {% for m in favs.layer %}
                         <li>{% map_info_tile m %}</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
+            {% if favs.map %}
             <div class="tab-pane" id="3">
                 <div class="article-list">
                     <ul>
-                        {% for m in members %}
+                        {% for m in favs.user %}
                         <li>{% storyteller_tile m %}</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
+            {% if favs.map %}
             <div class="tab-pane" id="4">
                 <div class="article-list">
                     <ul>
@@ -88,6 +103,7 @@
                     </ul>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>

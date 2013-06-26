@@ -197,6 +197,10 @@ def favoriteslinks(req):
     elif layer_or_map == 'layer':
         obj = get_object_or_404(Layer, pk = id)
         maps = None
+    # only create these links if the user is an Org
+    elif layer_or_map == 'owner' and models.Org.objects.filter(user=req.user).count():
+        obj = get_object_or_404(User, username = id)
+        maps = None
     else:
         return HttpResponse('')
     return render_to_response("simplesearch/_widget_search_favorites.html",{
@@ -260,11 +264,13 @@ def layer_metadata(request, layername):
     return HttpResponseRedirect(reverse('data_detail', args=[layer.typename]))
     
 @login_required
-def favorite(req, layer_or_map, id):
-    if layer_or_map == 'map':
+def favorite(req, subject, id):
+    if subject == 'map':
         obj = get_object_or_404(Map, pk = id)
-    else:
+    elif subject == 'layer':
         obj = get_object_or_404(Layer, pk = id)
+    elif subject == 'user':
+        obj = get_object_or_404(User, pk = id)
     models.Favorite.objects.create_favorite(obj, req.user)
     return HttpResponse('OK', status=200)
 
@@ -569,16 +575,17 @@ def user_activity_api(req):
 
 
 def org_page(req, org_slug):
-    import random
     org = get_object_or_404(models.Org, slug=org_slug)
     content = org.orgcontent_set.filter(name='main')
-    rmodels = lambda m :random.sample(getattr(m,'objects').all(), min(6, getattr(m,'objects').count()))
+    # have to resolve using both name and typename due to 'old non-ws-prefixed' layers
+    using = models.get_maps_using_layers_of_user(org.user)
     ctx = dict(org=org, org_content=content[0].text if content else None,
                can_edit=req.user.is_superuser or req.user == org.user,
-               layers = rmodels(Layer), maps=rmodels(Map),
-               members = rmodels(User), using=rmodels(Map)
+               using=using
                )
-    return render_to_response('mapstory/orgs/org_page.html', RequestContext(req, ctx))
+    ctx['favs'] = models.Favorite.objects.bulk_favorite_objects(org.user)
+    resp = render_to_response('mapstory/orgs/org_page.html', RequestContext(req, ctx))
+    return resp
 
 
 def org_page_api(req, org_slug):

@@ -1,5 +1,8 @@
 {% load mapstory_tags %}
 
+{% if owner %}
+{% add_to_favorites owner %}
+{% endif %}
 {% if map %}
 {% add_to_favorites map %}
 {% endif %}
