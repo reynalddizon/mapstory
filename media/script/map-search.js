@@ -50,10 +50,10 @@ if (!Function.prototype.bind) {
     layerElementTemplate = new Ext.Template(
         '<div class="ms-layer-title">',
         '<p>',
-        '<a class="show-meta" href="#">{title}</a> by ',
+        '<a class="ms-title" href="#">{title}</a> by ',
         '<a href="{owner_detail}">{owner}</a> on ',
         '{last_modified} ',
-        '<a class="ms-add-to-map" href="#">Add to map</a>',
+        '<a class="show-meta" href="#">Less</a>',
         '</p>',
         '</div>',
         '<div class="ms-layer-info">',
@@ -81,20 +81,21 @@ if (!Function.prototype.bind) {
         '</select>',
         '</fieldset>',
         '<fieldset>',
-
         '<label>Show expanded</label>',
         '<input id="show-meta-info" type="checkbox" checked>',
-
+        '</fieldset>',
+        '<fieldset>',
         '<label>Limit search to map extent</label>',
         '<input id="current-extent" type="checkbox">',
-
+        '</fieldset>',
+        '<fieldset>',
         '<label>Limit search to current time range</label>',
         '<input id="current-time" disabled type="checkbox">',
-
         '</fieldset>',
         '<fieldset>',
         '<button id="prev">Prev</button>',
         '<button id="next">Next</button>',
+        '<span id="total"></span>',
         '</fieldset>',
         '</form>',
         '</div>',
@@ -116,7 +117,7 @@ if (!Function.prototype.bind) {
 
         this.$el.on(
             'click',
-            'a.ms-add-to-map',
+            'a.ms-title',
             this.addToMap.bind(this)
         );
         this.$el.on(
@@ -127,69 +128,103 @@ if (!Function.prototype.bind) {
 
     };
 
-    LayerResult.prototype.checkLayerSource = function (callback) {
-        var ge = this.geoExplorer,
-            layer = this.layer,
-            sourceId = layer.name + '-search',
-                    // get the layer source from Geo explorer
-            source = ge.layerSources[sourceId];
+    LayerResult.prototype = {
+        constructor: LayerResult,
 
-        if (!source) {
-            source = ge.addLayerSource({
-                id: sourceId,
-                config: {
-                    isLazy: function () { return false; },
-                    ptype: 'gxp_wmscsource',
-                    hidden: true,
-                    restUrl: "/gs/rest", // TODO hard coded
-                    version: "1.1.1",
-                    url: layer.owsUrl
-                }
+        checkLayerSource: function (callback) {
+            var ge = this.geoExplorer,
+                self = this,
+                layer = this.layer,
+                sourceId = layer.name + '-search',
+                // get the layer source from Geo explorer
+                source = ge.layerSources[sourceId];
+
+            if (!source) {
+                source = ge.addLayerSource({
+                    id: sourceId,
+                    config: {
+                        isLazy: function () { return false; },
+                        ptype: 'gxp_wmscsource',
+                        hidden: true,
+                        restUrl: "/gs/rest", // TODO hard coded
+                        version: "1.1.1",
+                        url: layer.owsUrl
+                    }
+                });
+                source.on({
+                    ready: function () {
+                        callback.call(self, source);
+                    }
+                });
+            } else {
+                callback.call(self, source);
+            }
+
+        },
+
+        addToMap: function () {
+            var ge = this.geoExplorer,
+                layerStore = ge.mapPanel.layers,
+                layer = this.layer;
+
+            this.checkLayerSource(function (source) {
+                var record = source.createLayerRecord({
+                    name: layer.name.split(':').pop(),
+                    source: source.id
+                });
+
+                layerStore.add(record);
+                this.zoomToLayer(record);
             });
-            source.on({
-                ready: function () {
-                    callback(source);
-                }
+
+        },
+
+        zoomToLayer: function (record) {
+            var layer  = record.getLayer(),
+                extent = layer.maxExtent;
+            this.geoExplorer.mapPanel.map.zoomToExtent(extent);
+        },
+
+        setMetaButton: function (state) {
+            var button = this.$el.find('a.show-meta');
+            button.html(state);
+            return this;
+        },
+
+        toggleInfo: function (evt) {
+            // kind of messy, Figure out a better way of doing this
+            var oldState = this.$el.find('a.show-meta').html(),
+                state;
+
+            if (oldState === 'More') {
+                state = 'Less';
+            } else {
+                state = 'More';
+            }
+            this.setMetaButton(state);
+            this.$el.find('div.ms-layer-info').toggle();
+        },
+
+        render: function (showMeta) {
+            this.$el.html(this.template.apply(this.layer));
+
+            if (!showMeta) {
+                this.$el.find('div.ms-layer-info').hide();
+                // we hide the meta data we need to make sure we
+                // handle the state correctly
+                this.setMetaButton('More');
+            }
+
+            this.$el.find('.ms-layer-abstract').expander({
+                collapseTimer: 0,
+                slicePoint: 200
             });
-        } else {
-            callback(source);
+
+            return this;
         }
 
     };
 
-    LayerResult.prototype.addToMap = function () {
-        var ge = this.geoExplorer,
-            layerStore = ge.mapPanel.layers,
-            layer = this.layer;
-
-        this.checkLayerSource(function (source) {
-            var record = source.createLayerRecord({
-                name: layer.name.split(':').pop(),
-                source: source.id
-            });
-
-            layerStore.add(record);
-        });
-    };
-
-    LayerResult.prototype.toggleInfo = function (event) {
-        this.$el.find('div.ms-layer-info').toggle();
-    };
-
-    LayerResult.prototype.render = function (showMeta) {
-        this.$el.html(this.template.apply(this.layer));
-
-        if (!showMeta) {
-            this.$el.find('div.ms-layer-info').hide();
-        }
-
-        this.$el.find('.ms-layer-abstract').expander({
-            collapseTimer: 0,
-            slicePoint: 200
-        });
-
-        return this;
-    };
 
     // make these functions so we can pass them as arguments to
     // another function
@@ -207,9 +242,8 @@ if (!Function.prototype.bind) {
 
         this.searchUrl = options.searchUrl;
         this.geoExplorer = options.geoExplorer;
-        // save a reference to the openlayers map object
         this.map = options.map || null;
-        this.pageSize = options.pageSize || 25;
+        this.pageSize = options.pageSize || 4;
         this.currentPage = 1;
         this.numberOfRecords = 0;
         this.timeEndable = false;
@@ -286,6 +320,7 @@ if (!Function.prototype.bind) {
 
         findTimeControl: function () {
             if (this.map) {
+
                 this.map.controls.forEach(function (control) {
                     if (control instanceof OpenLayers.Control.DimensionManager) {
                         this.timeEnable = true;
@@ -318,7 +353,7 @@ if (!Function.prototype.bind) {
             this.$el.css('left', $(window).width() / 2 - widgetWidth / 2);
             this.$el.find('#ms-search-layers ul').css(
                 'max-height',
-                $(window).height() - 240
+                $(window).height() - 300
             );
         },
         setPageButtons: function () {
@@ -340,6 +375,9 @@ if (!Function.prototype.bind) {
 
             if (currentLoc >= this.numberOfRecords && this.numberOfRecords !== 0) {
                 this.$el.find('#next').attr('disabled', '');
+            } else if (this.numberOfRecords === 0) {
+                // handle case where there are 0 results
+                this.$el.find('#next').attr('disabled', '');
             } else {
                 this.$el.find('#next').removeAttr('disabled');
             }
@@ -359,19 +397,42 @@ if (!Function.prototype.bind) {
             this.$layerList.append(element.$el);
         },
 
-        renderLayers: function (layers) {
-            this.numberOfRecords = layers.total;
+        renderTotal: function () {
+            var numberOfDisplayed = 0,
+                isLastPage = (this.currentPage * this.pageSize) > this.numberOfRecords;
+
+            if (isLastPage) {
+                numberOfDisplayed = this.numberOfRecords - (this.currentPage - 1) * this.pageSize;
+            } else {
+                numberOfDisplayed = this.pageSize;
+            }
+
+
+            this.$el.find('#total').html(
+                'Displaying ' + numberOfDisplayed + ' of ' + this.numberOfRecords
+            );
+        },
+
+        renderLayers: function (data) {
+            this.numberOfRecords = data.total;
+            this.renderTotal();
             // if the start location is higher than the number of
             // returned records, then reset the page number and redo the
             // query
-            if (layers.total <= this.getStart() && layers.total !== 0) {
+            if (data.total <= this.getStart() && data.total !== 0) {
                 this.currentPage = 1;
                 this.doSearch();
             }
+
+            if (data.total === 0) {
+                this.currentPage = 1;
+            }
+
             this.$layerList.empty();
             this.setPageButtons();
+
             var self = this;
-            $.each(layers.rows, function (idx, layer) {
+            $.each(data.rows, function (idx, layer) {
                 self.renderLayer(layer);
             });
 
