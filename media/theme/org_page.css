@@ -71,3 +71,6 @@
 #header .wrap {
     padding-bottom: 12px;
 }
+.tab-pane {
+    min-height: 440px;
+}

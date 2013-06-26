@@ -14,6 +14,7 @@ Ext.onReady(function() {
     "<div class='itemInfo'>Joined on {last_modified}</div>" +
     "<div class='itemInfo'>{map_cnt} MapStories, {layer_cnt} StoryLayers</div>"+
     "<div class='itemAbstract'>{abstract}</div>"+
+    "<span class='more'>More &#9660;</span>"+
     "<div class='actions' id='{_type}-{id}'></div>"+
     "</li>" ,
     filterTemplate = "<div class='removeFilter {typeclass}'><img height='8' src='/static/theme/img/silk/delete.png' class='removeFilter' href='#removeFilter'> </a><strong>{type}</strong> {value}</div>",
