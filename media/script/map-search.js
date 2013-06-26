@@ -243,7 +243,7 @@ if (!Function.prototype.bind) {
         this.searchUrl = options.searchUrl;
         this.geoExplorer = options.geoExplorer;
         this.map = options.map || null;
-        this.pageSize = options.pageSize || 4;
+        this.pageSize = options.pageSize || 25;
         this.currentPage = 1;
         this.numberOfRecords = 0;
         this.timeEndable = false;
