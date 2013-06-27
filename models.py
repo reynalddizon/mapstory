@@ -366,6 +366,9 @@ class ContactDetail(Contact):
             name = self.user.username
         return name
 
+    def __unicode__(self):
+        return u"[ ContactDetail for %s ]" % self.display_name
+
 class ProfileIncomplete(models.Model):
     '''Track incomplete user profiles'''
     user = models.OneToOneField(User)

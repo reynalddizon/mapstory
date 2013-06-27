@@ -116,12 +116,24 @@
           the columns later if the spatial data are contained in other columns. <strong>NOTE: You must provide column names.</strong>
           {% manual_link "prep-filetypes" "Learn More &#187;" %}
       </p>
+      <p id="raster-msg" class="alert alert-warn">MapStory will automatically compute timestamps for
+          you rasters. These must be encoded in the file names using ISO standards.
+          {% manual_link "prep-raster" "Learn More &#187;" %}
+      </p>
       <p id="unknown-msg" class="alert alert-warn">
           Please select a .zip, .shp, or .csv file as the data file.  Other file types can be added after selecting a data file.
       </p>
       <p id="too-long-msg" class="alert alert-warn">
           Please ensure that your uploaded file has a name less than 64 characters long.
       </p>
+      <div id="zip-msg-container" class="alert alert-warn hide">
+          <div id="single-file">Your zip appears to have more than one relevant geospatial format. MapStory currently supports upload of one StoryLayer at a time, so please break it up in to separate zip files.</div>
+          <div id="no-directories">MapStory does not currently support directories in zip files. Please place all relevant geospatial files at the top level of your zip archive and remove all directories.</div>
+          <div id="no-recognized">MapStory could not recognize any currently supported file formats in your zip file. Please convert your data to one of formats listed above.</div>
+          <div id="error-reading">There was an error reading the zip file. Please verify the format.</div>
+          <div id="show-files" class="btn">List files in zip.</div>
+          <div id="file-list"></div>
+      </div>
       <p id="notes">
           <strong>Note:</strong> time support in MapStory is currently limited to everything from 1AD 
           until the reasonable future (5,874,897 AD).
@@ -135,6 +147,7 @@
   </div>
 </div>
 <script type="text/javascript" src="{% static "script/layer_upload.js" %}"></script>
+<script type="text/javascript" src="{% static "script/zip.js" %}"></script>
 <script type="text/javascript">
 {% autoescape off %}
 setup({
