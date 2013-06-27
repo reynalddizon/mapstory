@@ -71,7 +71,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if favs.map %}
+            {% if favs.layer %}
             <div class="tab-pane" id="2">
                 <div class="article-list">
                     <ul>
@@ -82,7 +82,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if favs.map %}
+            {% if favs.user %}
             <div class="tab-pane" id="3">
                 <div class="article-list">
                     <ul>
@@ -93,7 +93,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if favs.map %}
+            {% if using %}
             <div class="tab-pane" id="4">
                 <div class="article-list">
                     <ul>
@@ -158,6 +158,9 @@ $(function() {
     $("#carousel li *").carouselResize(mw, mh).load(function() {
        $(this).carouselResize(mw, mh);
     });
+    if (! $("#org-tabs .tab-pane.active").length) {
+        $("#org-tabs .tab-pane").eq(0).addClass('active');
+    }
 });
 </script>
 {% endblock %}
