@@ -12,6 +12,8 @@ function init(options) {
 
     var xml_unsafe = /(^[^a-zA-Z\._]+)|([^a-zA-Z0-9\._])/g;
 
+    var zipFileNames = [];
+
     var listeners = {
         "fileselected": function(cmp, value) {
             // remove the path from the filename - avoids C:/fakepath etc.
@@ -23,26 +25,6 @@ function init(options) {
             name: "csrfmiddlewaretoken",
             value: options.csrf_token
         }];
-    
-    function check_valid_ext(fname) {
-        var idx = fname.lastIndexOf('.'),
-            ext = idx > 0 ? fname.substr(idx + 1) : '';
-        ext = ext.toLowerCase();
-        switch (ext) {
-            case 'shp': 
-            case 'csv':
-            case 'zip':
-            case 'tif':
-            case 'tiff':
-            case 'geotiff':
-            case 'png':
-            case 'jpg':
-                break
-            default:
-                ext = null;
-        }
-        return ext;
-    }
 
     var base_file = new Ext.ux.form.FileUploadField({
         id: 'base_file',
@@ -52,7 +34,7 @@ function init(options) {
         allowBlank: false,
         listeners: listeners,
         validator: function(name) {
-            return check_valid_ext(name) != null && name.length <= 64;
+            return isMainFile(name) && name.length <= 64;
         }
     });
 
@@ -133,6 +115,7 @@ function init(options) {
     var zipMsg = containerFromDom('zip-msg').hide();
     var shpMsg = containerFromDom('shp-msg').hide();
     var csvMsg = containerFromDom('csv-msg').hide();
+    var rasterMsg = containerFromDom('raster-msg').hide();
     var unknownMsg = containerFromDom('unknown-msg').hide();
     var tooLongMsg = containerFromDom('too-long-msg').hide();
 
@@ -140,6 +123,7 @@ function init(options) {
     form_fields.push(zipMsg);
     form_fields.push(shpMsg);
     form_fields.push(csvMsg);
+    form_fields.push(rasterMsg);
     form_fields.push(unknownMsg);
     form_fields.push(tooLongMsg);
     form_fields.push(sld_file);
@@ -218,23 +202,26 @@ function init(options) {
         prj_file.show();
     };
 
-    var checkFileType = function() {
-        var ext = check_valid_ext(base_file.getValue());
-        disable_shapefile_inputs();
+    var showFileMessage = function(ext, iszip) {
         shpMsg.hide();
         csvMsg.hide();
         zipMsg.hide();
+        rasterMsg.hide();
         unknownMsg.hide();
         tooLongMsg.hide();
+        Ext.get("zip-msg-container").addClass('hide');
         if (base_file.getValue().length > 64) {
             tooLongMsg.show();
             checkFormValid();
             return;
         }
+        if (ext == null) return;
         switch (ext) {
             case 'shp':
-                enable_shapefile_inputs();
-                shpMsg.show();
+                // if the shp is in a zip, don't show the message
+                if (! iszip) {
+                    shpMsg.show();
+                }
                 break;
             case 'csv':
                 csvMsg.show();
@@ -247,11 +234,33 @@ function init(options) {
             case 'geotiff':
             case 'png':
             case 'jpg':
+                rasterMsg.show();
                 break;
             default:
                 unknownMsg.show();
         }
+    };
+
+    var checkFileType = function() {
+        var ext = getExtension(base_file.getValue());
+        if (ext == 'shp') {
+            enable_shapefile_inputs();
+        } else {
+            disable_shapefile_inputs();
+        }
         checkFormValid();
+        if (test_file_api()) {
+            if ('base_file' in dropped_files) {
+                file = dropped_files['base_file'];
+            } else {
+                file = Ext.get('base_file-file').dom.files[0];
+            }
+            if (file == null || !checkZipContent(file, null)) {
+                showFileMessage(ext, false);
+            }
+        } else {
+            showFileMessage(ext, false);
+        }
     };
     
     function checkFormValid(notify) {
@@ -310,11 +319,93 @@ function init(options) {
     
     function isMainFile(name) {
         var ext = getExtension(name);
-        return /^(csv|zip|shp|tif|tiff|geotiff|png|jpg)$/i.test(ext);
+        return /^(zip)$/i.test(ext) || isVectorExt(ext) || isRasterExt(ext);
+    }
+    
+    function isVectorExt(ext) {
+        return /^(csv|shp)$/i.test(ext);
+    }
+
+    function isRasterExt(ext) {
+        return /^(tif|tiff|geotiff|png|jpg)$/i.test(ext);
     }
     
     function isShapefileComponent(ext) {
         return /^(shp|dbf|prj|shx)$/.text(ext);
+    }
+
+    function checkZipContent(file) {
+        var directoryPresent = false, success = true, 
+            vectorMainFile = null, rasterMainFile = null;
+        if (! /\.zip$/.test(file.name)) return false;
+
+        function complete(msg, ext) {
+            var msgContainer = Ext.get("zip-msg-container");
+            if (msg) {
+                msgContainer.select('div').addClass('hide');
+                msgContainer.select(msg).removeClass('hide');
+                msgContainer.removeClass('hide');
+            }
+            if (ext) {
+                msgContainer.addClass('hide');
+                showFileMessage(ext, true);
+            }
+            Ext.get('show-files').removeClass('hide');
+        }
+
+        function skipFile(zipEntry) {
+            return zipEntry.filename.indexOf('__MACOSX') >= 0; // yay
+        }
+
+        zip.createReader(new zip.BlobReader(file), function(reader) {
+            // get all entries from the zip
+            reader.getEntries(function(entries) {
+                var i, e, ext, main;
+                zipFileNames = [];
+                for (i = 0; i < entries.length; i++) {
+                    if (!skipFile(entries[i])) {
+                        zipFileNames.push(entries[i].filename);
+                    }
+                }
+                for (i = 0; i < entries.length; i++) {
+                    e = entries[i];
+
+                    if (skipFile(e)) continue;
+                    
+                    if (e.directory) {
+                        directoryPresent = true;
+                    }
+                    ext = getExtension(e.filename);
+                    if (isVectorExt(ext)) {
+                        if (rasterMainFile || vectorMainFile) {
+                            return complete('#single-file', null);
+                        }
+                        vectorMainFile = e.filename;
+                    }
+                    if (isRasterExt(ext)) {
+                        if (vectorMainFile) {
+                            return complete('#single-file', null);
+                        }
+                        rasterMainFile = e.filename;
+                    }
+                }
+                
+                if (directoryPresent) {
+                    return complete('#no-directories', null);
+                }
+
+                if (!rasterMainFile && !vectorMainFile) {
+                    return complete('#no-recognized', null);
+                }
+
+                main = rasterMainFile == null ? vectorMainFile : rasterMainFile;
+
+                return complete(null, getExtension(main));
+            });
+        }, function(error) {
+            complete('#error-reading', false);
+        });
+        return true;
     }
 
     if (test_file_api()) {
@@ -323,31 +414,29 @@ function init(options) {
         // drop handler
         var drop = function(ev) {
             ev.preventDefault();
-            var dt = ev.dataTransfer, files = dt.files, i = 0, ext, key, w;
-            // this is the single file drop of a 'main' file
-            if (files.length == 1 && isMainFile(files[i].name)) {
-                base_file.setValue(files[i].name);
-                dropped_files.base_file = files[i];
-            } else {
-                // multiple file drop
-                for (; i < files.length; i++) {
-                    ext = files[i].name.split('.');
-                    // grab the last part to avoid .shp.xml getting sucked in
-                    ext = ext[ext.length - 1];
-                    if (ext == 'shp') {
-                        base_file.setValue(files[i].name);
-                        enable_shapefile_inputs();
-                        dropped_files.base_file = files[i];
-                    } else {
-                        try {
-                            key = ext + '_file', w = eval(key);
-                            w.setValue(files[i].name);
-                            dropped_files[key] = files[i];
-                        } catch (ReferenceError) {}
+            var dt = ev.dataTransfer, files = dt.files, i = 0, ext, key, w, notRecognized = [];
+            for (; i < files.length; i++) {
+                ext = getExtension(files[i].name);
+                if (isMainFile(ext)) {
+                    base_file.setValue(files[i].name);
+                    dropped_files.base_file = files[i];
+                } else {
+                    try {
+                        key = ext + '_file', w = eval(key);
+                        w.setValue(files[i].name);
+                        dropped_files[key] = files[i];
+                    } catch (ReferenceError) {
+                        notRecognized.push(files[i].name);
                     }
                 }
             }
             checkFileType();
+            if (notRecognized.length) {
+                notRecognized.splice(0, 0, "These files are not recognized:");
+                errorHandler(null, {result : { errors : notRecognized}});
+            } else {
+                Ext.get('form-messages').enableDisplayMode().hide();
+            }
         };
 
         var dropTarget = Ext.get("drop-target");
@@ -411,8 +500,8 @@ function init(options) {
                         error(ev, result);
                     }
                 } catch (ex) {
-                    console.log(ex);
                     error(ev);
+                    console.log(ex);
                 }
             }, false);
             xhr.addEventListener('error', error, false);
@@ -424,14 +513,34 @@ function init(options) {
 
         var originalHandler = fp.buttons[0].handler;
         fp.buttons[0].handler = function() {
+            var file;
             fp.submitted = true;
             if (!checkFormValid(true)) return;
+
             if ('base_file' in dropped_files) {
                 upload(createDragFormData());
             } else {
                 originalHandler();
             }
-        }
+        };
+
+        Ext.get('show-files').on('click', function() {
+            var els = [], el, i, list = Ext.get('file-list'), name;
+            for (i=0; i < zipFileNames.length; i++) {
+                name = zipFileNames[i]
+                el = { tag: 'li', html: name };
+                if (!/\.zip$/i.test(name) && isMainFile(name)) {
+                    el['class'] = 'bitchin';
+                    el['style'] = { 'font-weight': 'bold'};
+                }
+                els.push(el);
+            }
+            Ext.DomHelper.overwrite(list, {
+                tag : 'ul',
+                children: els
+            });
+            list.removeClass('hide');
+        });
     }
     
     var confirmDelete = true;
