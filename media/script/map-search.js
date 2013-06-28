@@ -50,7 +50,7 @@ if (!Function.prototype.bind) {
     layerElementTemplate = new Ext.Template(
         '<div class="ms-layer-title">',
         '<p>',
-        '<a class="ms-title" href="#">{title}</a> by ',
+        '<a title="Add this storylayer to the mapstory" class="ms-title" href="#">{title}</a> by ',
         '<a href="{owner_detail}">{owner}</a> on ',
         '{last_modified} ',
         '<a class="show-meta" href="#">Less</a>',
