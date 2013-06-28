@@ -67,6 +67,7 @@ if (!Function.prototype.bind) {
     // maybe this template should live in the html document
     widgetTemplate = new Ext.Template(
         '<div id="ms-header">',
+        '<div class="x-tool x-tool-close"> </div>',
         '<form>',
         '<fieldset>',
         '<button id="search" type="submit">Search</button>',
@@ -261,12 +262,7 @@ if (!Function.prototype.bind) {
         // using event delegation so they can be bound before the
         // child dom element is inserted into the dom
         var doSearch = this.doSearch.bind(this);
-        this.$el.on('click', '#done', function () {
-            // jquery's remove should also remove all of the events
-            // attached to this element and its children
-            // http://api.jquery.com/remove/
-            this.$el.remove();
-        }.bind(this));
+        this.$el.on('click', '#done', this.close.bind(this));
         this.$el.on('click', '#search', doSearch);
         this.$el.on('change', '#sortBy', doSearch);
         // all inputs are covered by the following selector
@@ -510,7 +506,10 @@ if (!Function.prototype.bind) {
         },
 
         render: function () {
+            var hover = function() { $(this).toggleClass('x-tool-close-over'); };
             this.$el.append(this.template.apply());
+            this.$el.find('.x-tool-close').hover(hover, hover).
+                    click(this.close.bind(this));
             this.enableTimeFilter();
             this.$layerList = this.$el.find('#ms-search-layers ul');
             this.adjustWidget();
@@ -519,6 +518,13 @@ if (!Function.prototype.bind) {
             this.setPageButtons();
             $('body').append(this.$el);
             return this;
+        },
+
+        close: function() {
+            // jquery's remove should also remove all of the events
+            // attached to this element and its children
+            // http://api.jquery.com/remove/
+            this.$el.remove();
         }
 
     };
