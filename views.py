@@ -611,7 +611,7 @@ def org_page_api(req, org_slug):
 
 def org_links(req, org_slug, link_type='links'):
     org = get_object_or_404(models.Org, slug=org_slug)
-    if not (req.user is org.user or req.user.is_superuser):
+    if not (req.user == org.user or req.user.is_superuser):
         raise PermissionDenied()
     return _process_links(req, org, 'mapstory/orgs/org_links.html', link_type)
 
