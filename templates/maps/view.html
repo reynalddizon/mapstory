@@ -34,7 +34,7 @@ var app = new GeoExplorer();
 // when the add layers widget on the page load
 $(function () {
    // make sure we are on the maps new page
-   if (window.location.pathname.match('/maps/new')) {
+   if (window.location.href.match('.*/maps/new$')) {
 
        var search = new window.mapstory.LayerSearch({
            geoExplorer: app,
