@@ -48,6 +48,7 @@
 #ms-search-layers .ms-layer-info img {
      width: 256px;
      height: 128px;
+     cursor: pointer;
 }
 
 #ms-search-layers li:hover {

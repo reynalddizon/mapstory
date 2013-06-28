@@ -118,7 +118,7 @@ if (!Function.prototype.bind) {
 
         this.$el.on(
             'click',
-            'a.ms-title',
+            'a.ms-title, .ms-layer-info img',
             this.addToMap.bind(this)
         );
         this.$el.on(
