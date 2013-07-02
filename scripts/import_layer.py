@@ -79,9 +79,6 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
             cat.create_style(style_name, sld)
         except Exception, ex:
             print "error creating style : %s" % ex
-        id = style_xml.find('id').text
-        style_by_id[id] = style_name
-
 
     # Now let's load the layers
     for ws in os.listdir(temppath('workspaces')):
@@ -93,15 +90,19 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
                     # create the layer by reading the xml, stripping some specific
                     # ids, and posting to REST endpoint
                     # @todo didn't see nice way to do this via gsconfig
-                    gs_feature_url = "%(base)srest/workspaces/%(workspace)s/datastores/%(datastore)s/featuretypes" % dict(
+                    gs_feature_url = "%(base)srest/workspaces/%(workspace)s/datastores/%(datastore)s/featuretypes.xml" % dict(
                         base = settings.GEOSERVER_BASE_URL,
                         workspace = ws,
                         datastore = store_name
                     )
-                    feature_xml = ET.parse(temppath('workspaces',ws,store_name,layer_name,'featuretype.xml')).getroot()
+                    xml_file = temppath('workspaces',ws,store_name,layer_name,'featuretype.xml')
+                    feature_xml = ET.parse(xml_file).getroot()
                     # strip potentially foreign ids
-                    for el in ('id', 'namespace', 'store'):
-                        feature_xml.remove(feature_xml.find(el))
+#                    for el in ('id', 'namespace', 'store'):
+#                        feature_xml.remove(feature_xml.find(el))
+#                    gs_layer_data = "<featureType><name>{0}</name></featureType>".format(layer_name)
+#                    headers, response = cat.http.request(gs_feature_url, "POST", gs_layer_data, { "Content-Type": "application/xml" })
+#                    print headers, response
                     headers, response = cat.http.request(gs_feature_url, "POST", ET.tostring(feature_xml), { "Content-Type": "application/xml" })
                     if str(headers.status) != '201':
                         print gs_feature_url
@@ -116,10 +117,10 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
                 cat_layer = cat.get_layer(layer_name)
                 # if these styles don't speak the 'name' attribute, they don't quack
                 # quack!
-                style = lambda el: type('style',(object,),{'name' : style_by_id[el.text]})
-                cat_layer.styles = [ style(id) for id in layer_xml.findall('.//style/id') ]
+                style = lambda el: type('style',(object,),{'name' : el.text})
+                cat_layer.styles = [ style(id) for id in layer_xml.findall('.//style/name') ]
                 # this one can be by name
-                cat_layer.default_style = style_by_id[layer_xml.find('.//defaultStyle/id').text]
+                cat_layer.default_style = layer_xml.find('.//defaultStyle/name').text
                 cat.save(cat_layer)
 
     # reload catalog
@@ -187,7 +188,6 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
                     status.save()
 
 if __name__ == '__main__':
-    gs_data_dir = '/var/lib/geoserver/geonode-data/'
 
     parser = OptionParser('usage: %s [options] layer_import_file.zip' % __file__)
     parser.add_option('-P', '--no-password',

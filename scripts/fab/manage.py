@@ -1,7 +1,7 @@
 '''
 To use:
 
-  fab -f scripts/fab/manage.py -c .fab.dev get_layer:SlateGunDeaths
+  fab -f scripts/fab/manage.py -c .fab.dev get_layer:SlateGunDeaths --hosts=mapstory.dev.opengeo.org
 
 Where my .fab.dev config file had this inside:
 
@@ -17,17 +17,11 @@ from fabric.utils import abort
 import os
 
 env.use_ssh_config=True
-env.hosts = ['mapstory.dev.opengeo.org']
 env.deploy_user = 'geonode'
 env.activate = 'source ~geonode/geonode/bin/activate'
-if 'data_dir' not in env:
-    env.data_dir = '../geonode/gs-data'
 
 mapstory = os.path.dirname(__file__) + "/../.."
 user_home = '/home/%s' % env.deploy_user
-
-if not os.path.exists(env.data_dir):
-    abort('env.data_dir "%s" does not exist' % env.data_dir)
 
 #
 # helpers

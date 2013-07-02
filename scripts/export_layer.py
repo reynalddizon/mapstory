@@ -12,9 +12,10 @@ import sys
 import os
 import tempfile
 import shutil
-import xml.dom.minidom
+from xml.etree.ElementTree import tostring
 
-def export_layer(gs_data_dir, conn, tempdir, layer):
+
+def export_layer(conn, tempdir, layer):
     gslayer = Layer.objects.gs_catalog.get_layer(layer.typename)
     gsresource = gslayer.resource
 
@@ -24,7 +25,6 @@ def export_layer(gs_data_dir, conn, tempdir, layer):
     nativeName = gsresource.dom.find('nativeName').text
 
     temppath = lambda *p: os.path.join(tempdir, *p)
-    gspath = lambda *p: os.path.join(gs_data_dir, *p)
 
     cursor = conn.cursor()
 
@@ -46,32 +46,20 @@ def export_layer(gs_data_dir, conn, tempdir, layer):
     with open(temppath('model.json'),'wb') as fp:
         fp.write(serializers.serialize("json", [layer]))
 
-    layer_name = layer.name
     #copy geoserver layer info
-    workspace_path = 'workspaces/%s/%s/%s' % (gsresource.workspace.name, gsresource.store.name, layer_name)
+    workspace_path = 'workspaces/%s/%s/%s' % (gsresource.workspace.name, gsresource.store.name, layer.name)
     os.makedirs(temppath(workspace_path))
-    for f in os.listdir(gspath(workspace_path)):
-        shutil.copy(gspath(workspace_path,f), temppath(workspace_path,f))
-
-    os.makedirs(temppath('styles'))
-    def parse_sld_filename(stylexmlpath):
-        with open(stylexmlpath) as f:
-            dom = xml.dom.minidom.parse(f)
-            filename = dom.getElementsByTagName('filename')
-            if filename:
-                return filename[0].firstChild.nodeValue;
-
-    def copy_style(style):
-        if not style: return
-        xmlfilepath = gspath('styles',style.name + ".xml")
-        sld_filename = parse_sld_filename(xmlfilepath)
-        shutil.copy(xmlfilepath, temppath('styles'))
-        if not sld_filename:
-            print 'Could not parse sld filename from: %s' % xmlfilepath
-        else:
-            shutil.copy(gspath('styles', sld_filename), temppath('styles'))
+    open(temppath(workspace_path, 'featuretype.xml'), 'w').write(tostring(gsresource.dom))
+    open(temppath(workspace_path, 'layer.xml'), 'w').write(tostring(layer.publishing.dom))
 
     #gather styles
+    os.makedirs(temppath('styles'))
+    def copy_style(style):
+        if not style: return
+        style.fetch()
+        sld_filename = temppath('styles', style.filename)
+        open(sld_filename, 'w').write(style.sld_body)
+
     copy_style(gslayer.default_style)
     map(copy_style, gslayer.styles)
 
@@ -91,16 +79,11 @@ def export_layer(gs_data_dir, conn, tempdir, layer):
     cursor.close()
 
 if __name__ == '__main__':
-    gs_data_dir = '/var/lib/geoserver/geonode-data/'
 
     args = sys.argv[1:]
     if not args:
-        print 'use: extract_layer.py [-d gs_data_dir] layername'
+        print 'use: extract_layer.py layername'
         sys.exit(1)
-    if '-d' in args:
-        idx = args.index('-d')
-        args.pop(idx)
-        gs_data_dir = args.pop(idx) 
     
     conn = psycopg2.connect("dbname='" + settings.DB_DATASTORE_DATABASE + 
                             "' user='" + settings.DB_DATASTORE_USER + 
@@ -118,7 +101,7 @@ if __name__ == '__main__':
     tempdir = tempfile.mkdtemp()
 
     # creates the layer layout structure in the temp directory
-    export_layer(gs_data_dir, conn, tempdir, layer)
+    export_layer(conn, tempdir, layer)
 
     # zip files
     curdir = os.getcwd()
