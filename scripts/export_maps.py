@@ -23,13 +23,7 @@ import shutil
 
 from export_layer import export_layer
 
-gs_data_dir = '/var/lib/geoserver/geonode-data/'
-
 parser = OptionParser('usage: %s [options] maps_export_file.zip [mapid ...]' % sys.argv[0])
-parser.add_option('-d', '--data-dir',
-                  dest='data_dir',
-                  default=gs_data_dir,
-                  help='geoserver data dir')
 parser.add_option('-i', '--input-file',
                   dest='input_file',
                   default=None,
@@ -42,10 +36,6 @@ parser.add_option('-i', '--input-file',
 (options, args) = parser.parse_args()
 if len(args) < 1:
     parser.error('please provide the export map zip file')
-
-gs_data_dir = options.data_dir
-
-gspath = lambda *p: os.path.join(gs_data_dir, *p)
 
 map_ids = set()
 layer_names = set()
@@ -157,7 +147,7 @@ conn = psycopg2.connect("dbname='" + settings.DB_DATASTORE_DATABASE +
 for layer in layers_to_export:
     layerdirpath = os.path.join(layersdir, layer.name)
     os.mkdir(layerdirpath)
-    export_layer(gs_data_dir, conn, layerdirpath, layer)
+    export_layer(conn, layerdirpath, layer)
 
 # export the maps and the maplayers
 def export_json(path, data):
