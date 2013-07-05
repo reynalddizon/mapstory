@@ -58,6 +58,11 @@ urlpatterns = patterns('',
     ('^profiles/create/$', 'profiles.views.create_profile', {'form_class': ProfileForm,}),
     # and redirect the profile list
     url('^profiles/$', NamedRedirect.as_view(name='search_owners')),
+
+    # alias these for compat with security from geonode2
+    url('^layers/acls$', 'geonode.maps.views.layer_acls'),
+    url('^layers/resolve_user$', 'geonode.maps.views.user_name'),
+
 )
 
 urlpatterns += patterns('mapstory.views',
