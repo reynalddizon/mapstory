@@ -339,11 +339,12 @@ ABSOLUTE_URL_OVERRIDES = {
 #EMAIL_BACKEND = "mailer.backend.DbBackend"
 
 def resolve_user_url(u):
-    contacts = u.contact_set.all()
-    if contacts:
-        return contacts[0].contactdetail.get_absolute_url()
-    else:
-        return None
+    from django.db.models.base import ObjectDoesNotExist
+    try:
+        profile = u.get_profile()
+    except ObjectDoesNotExist:
+        profile = None
+    return profile.get_absolute_url() if profile else None
 
 ABSOLUTE_URL_OVERRIDES = {
     'auth.user': resolve_user_url
