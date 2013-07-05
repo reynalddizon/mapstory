@@ -81,6 +81,9 @@ $(function () {
     var headers = {
         'X-CSRFToken' : Ext.util.Cookies.get('csrftoken')
     };
+    $(document).ajaxSend(function(event, xhr, settings) {
+        xhr.setRequestHeader("X-CSRFToken", Ext.util.Cookies.get('csrftoken'));
+    });
     Ext.Ajax.defaultHeaders = headers;
     {# MONKEY PATCH #}
     OpenLayers.Request._monkey_issue = OpenLayers.Request.issue;
