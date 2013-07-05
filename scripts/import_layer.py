@@ -67,16 +67,14 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
     cursor.execute('insert into geometry_columns VALUES(%s)' % ','.join(["'%s'" % v for v in geom_cols]))
 
     # To the stylemobile!
-    # build a dict of id->style so we can match them up to layers later
-    style_by_id = {}
-    for f in glob.glob("%s/*.xml" % temppath('styles')):
+    for f in glob.glob("%s/*.sld" % temppath('styles')):
         style_xml = ET.parse(f).getroot()
-        filename = style_xml.find('filename').text
-        style_name = style_xml.find('name').text
-        sld = open(temppath('styles', filename), 'r').read()
+        style_name = style_xml.find('.//{http://www.opengis.net/sld}NamedLayer/{http://www.opengis.net/sld}Name').text
+        sld = open(f, 'r').read()
         try:
             # @todo allow overwrite via the named argument?
             cat.create_style(style_name, sld)
+            print 'created style %s -> %s' % (style_name, f)
         except Exception, ex:
             print "error creating style : %s" % ex
 
@@ -121,6 +119,7 @@ def import_layer(conn, layer_tempdir, layer_name, owner_name,
                 cat_layer.styles = [ style(id) for id in layer_xml.findall('.//style/name') ]
                 # this one can be by name
                 cat_layer.default_style = layer_xml.find('.//defaultStyle/name').text
+                print cat_layer.styles, cat_layer.default_style
                 cat.save(cat_layer)
 
     # reload catalog

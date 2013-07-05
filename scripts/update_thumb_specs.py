@@ -13,26 +13,31 @@ def make_matcher(from_string):
     # build a pattern that matches hostname and optional port
     return re.compile('%s://%s(:\d+)?/' % (parts.scheme, parts.netloc))
 
-def make_updater(from_string, to_string, attr):
+def make_updater(from_string, to_string, *attrs):
     """make an update function that given a model, fetches the attr,
     which must be a string, runs the string replace, and saves the
     model if the replace caused a change"""
     def updater(model):
-        orig_value = getattr(model, attr)
-        matcher = make_matcher(from_string)
-        new_value = matcher.sub(to_string, orig_value)
-        if orig_value != new_value:
-            print ('updating %s: %s - attribute: %s'
-                   % (model._meta.object_name, model.id, attr))
-            setattr(model, attr, new_value)
-            model.save()
+        for attr in attrs:
+            orig_value = getattr(model, attr)
+            if not orig_value: continue
+            matcher = make_matcher(from_string)
+            print matcher.pattern
+            new_value = matcher.sub(to_string, orig_value)
+            if attr == 'ows_url':
+                print orig_value, new_value
+            if orig_value != new_value:
+                print ('updating %s: %s - attribute: %s'
+                       % (model._meta.object_name, model.id, attr))
+                setattr(model, attr, new_value)
+        model.save()
     return updater
 
 def make_thumbnail_updater(from_string, to_string):
     return make_updater(from_string, to_string, 'thumb_spec')
 
 def make_maplayer_updater(from_string, to_string):
-    return make_updater(from_string,  to_string, 'layer_params')
+    return make_updater(from_string,  to_string, 'layer_params', 'ows_url')
 
 def update_thumbnail_specs(from_string, to_string):
     """run a string replace on all thumb specs from -> to"""

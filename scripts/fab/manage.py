@@ -19,6 +19,11 @@ import os
 env.use_ssh_config=True
 env.deploy_user = 'geonode'
 env.activate = 'source ~geonode/geonode/bin/activate'
+env.roledefs = {
+    'dev' : ['mapstory.dev.opengeo.org'],
+    'prod' : ['mapstory'],
+    'staging' : ['mapstory.demo.opengeo.org']
+}
 
 mapstory = os.path.dirname(__file__) + "/../.."
 user_home = '/home/%s' % env.deploy_user
