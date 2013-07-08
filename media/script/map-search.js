@@ -297,6 +297,7 @@ if (!Function.prototype.bind) {
                     'addlayer': this.isTimeLayer,
                     scope: this
                 });
+                this.map.events.on({moveend: this.doSearch, scope: this});
             }, this);
 
         },
