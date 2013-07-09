@@ -132,6 +132,7 @@ urlpatterns += patterns('mapstory.views',
     url(r'^search/favoriteslist$','favoriteslist',name='favoriteslist'),
     url(r'^mapstory/resource/(?P<resource>[-\w]+)/links', 'resource_links', name='resource_links'),
     url(r'^mapstory/resource/(?P<resource>[-\w]+)/ribbon', 'resource_links', {'link_type' : 'ribbon_links'}, name='resource_ribbon_links'),
+    url(r'^maps/(?P<mapid>\d+)/annotations$','annotations',name='annotations'),
 
     url(r'^ajax/hitcount/$', update_hit_count_ajax, name='hitcount_update_ajax'),
 

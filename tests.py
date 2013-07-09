@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.test.client import Client
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.core.urlresolvers import reverse
 
 from geonode.maps.models import Layer
 from geonode.maps.models import Map
@@ -10,6 +11,7 @@ from geonode.maps.models import Thumbnail
 from geonode.simplesearch import models as simplesearch
 from mapstory import social_signals # this just needs activating but is not used
 from mapstory import forms
+from mapstory.models import Annotation
 from mapstory.models import UserActivity
 from mapstory.models import ProfileIncomplete
 from mapstory.models import audit_layer_metadata
@@ -23,8 +25,10 @@ from dialogos.models import Comment
 from mailer import engine as email_engine
 
 from datetime import timedelta
+import json
 import logging
 import re
+import StringIO
 
 # these can just get whacked
 simplesearch.map_updated = lambda **kw: None
@@ -55,7 +59,7 @@ class SocialTest(TestCase):
         # there should be a single action
         self.assertEqual(1, len(actions))
         self.assertEqual('bobby published layer2 Layer 0 minutes ago', str(actions[0]))
-        
+
         # now create a map
         admin_map = Map.objects.create(owner=self.admin, zoom=1, center_x=0, center_y=0, title='map1')
         # have to use a 'dummy' map to create the appropriate JSON
@@ -287,3 +291,147 @@ class ContactDetailTests(TestCase):
         # and email applied to both user and profile
         self.assertEqual(new_email, u.email)
         self.assertEqual(new_email, u.get_profile().email)
+
+
+class AnnotationsTest(TestCase):
+    fixtures = ['test_data.json','map_data.json']
+    c = Client()
+
+    def setUp(self):
+        self.bobby = User.objects.get(username='bobby')
+        self.admin = User.objects.get(username='admin')
+        admin_map = Map.objects.create(owner=self.admin, zoom=1, center_x=0, center_y=0, title='map1')
+        # have to use a 'dummy' map to create the appropriate JSON
+        dummy = Map.objects.get(id=admin_map.id)
+        dummy.id += 1
+        dummy.save()
+        self.dummy = dummy
+
+    def make_annotations(self, mapobj, cnt=100):
+        for a in xrange(cnt):
+            # make sure some geometries are missing
+            geom = 'POINT(5 23)' if cnt % 2 == 0 else None
+            Annotation.objects.create(title='ann%s' % a, map=mapobj, the_geom=geom).save()
+
+    def test_copy_annotations(self):
+        self.make_annotations(self.dummy)
+
+        admin_map = Map.objects.create(owner=self.admin, zoom=1, center_x=0, center_y=0, title='map2')
+        # have to use a 'dummy' map to create the appropriate JSON
+        target = Map.objects.get(id=admin_map.id)
+        target.id += 1
+        target.save()
+
+        Annotation.objects.copy_map_annotations(target, self.dummy.id)
+        # make sure we have 100 and we can resolve the corresponding copies
+        self.assertEqual(100, target.annotation_set.count())
+        for a in self.dummy.annotation_set.all():
+            self.assertTrue(target.annotation_set.get(title=a.title))
+
+    def test_get(self):
+        '''make 100 annotations and get them all as well as paging through'''
+        self.make_annotations(self.dummy)
+
+        response = self.c.get(reverse('annotations',args=[self.dummy.id]))
+        rows = json.loads(response.content)['features']
+        self.assertEqual(100, len(rows))
+
+        for p in range(4):
+            response = self.c.get(reverse('annotations',args=[self.dummy.id]) + "?page=%s" % p)
+            rows = json.loads(response.content)['features']
+            self.assertEqual(25, len(rows))
+            # auto-increment id starts with 1
+            self.assertEqual(1 + (25 * p), rows[0]['id'])
+
+    def test_post(self):
+        '''test post operations'''
+
+        # make 1 and update it
+        self.make_annotations(self.dummy, 1)
+        ann = Annotation.objects.filter(map=self.dummy)[0]
+        data = json.dumps({
+            'features' : [{
+                'geometry' : {'type' : 'Point', 'coordinates' : [ 5.000000, 23.000000 ]},
+                "id" : ann.id,
+                'properties' : {
+                    "title" : "new title",
+                    "start_time" : "2001-01-01",
+                    "end_time" : 1371136048
+                }
+            }]
+        })
+        # without login, expect failure
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
+        self.assertEqual(403, resp.status_code)
+
+        # login and verify change accepted
+        self.c.login(username='admin',password='admin')
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
+        ann = Annotation.objects.get(id=ann.id)
+        self.assertEqual(ann.title, "new title")
+        self.assertEqual(ann.the_geom.x, 5)
+        self.assertEqual(ann.end_time, 1371136048)
+        self.assertEqual(ann.start_time, 978307200)
+
+        # now make a new one with just a title and null stuff
+        data = json.dumps({
+            'features' : [{
+                'properties' : {
+                    "title" : "new ann",
+                    "geometry" : None
+                }
+            }]
+        })
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
+        resp = json.loads(resp.content)
+        self.assertEqual(resp['success'], True)
+        ann = Annotation.objects.get(id=ann.id + 1)
+        self.assertEqual(ann.title, "new ann")
+
+    def test_delete(self):
+        '''test delete operations'''
+
+        # make 10 annotations, drop 4-7
+        self.make_annotations(self.dummy, 10)
+        data = json.dumps({'action':'delete', 'ids':range(4,8)})
+        # verify failure before login
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
+        self.assertEqual(403, resp.status_code)
+
+        # now check success
+        self.c.login(username='admin',password='admin')
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
+        # these are gone
+        ann = Annotation.objects.filter(id__in=range(4,8))
+        self.assertEqual(0, ann.count())
+        # six remain
+        ann = Annotation.objects.filter(map=self.dummy)
+        self.assertEqual(6, ann.count())
+
+    def test_csv_upload(self):
+        '''test csv upload with update and insert'''
+
+        self.make_annotations(self.dummy, 2)
+        # first row is insert, second update (as it has an id)
+        csv = StringIO.StringIO(
+            "id,title,content,lat,lon\n"
+            '"",foo bar,blah,5,10\n'
+            "1,bar foo,halb,10,20"
+        )
+        csv.name = 'data.csv'
+        # verify failure before login
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':csv})
+        self.assertEqual(403, resp.status_code)
+
+        # login, rewind the buffer and verify
+        self.c.login(username='admin',password='admin')
+        csv.seek(0)
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':csv})
+        jsresp = json.loads(resp.content)
+        self.assertEqual(True, jsresp['success'])
+        ann = Annotation.objects.get(id=1)
+        self.assertEqual('bar foo', ann.title)
+        self.assertEqual(ann.the_geom.x, 20.)
+        ann = Annotation.objects.get(id=3)
+        self.assertEqual('foo bar', ann.title)
+        self.assertEqual(ann.the_geom.x, 10.)
