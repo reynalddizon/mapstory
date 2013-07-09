@@ -22,20 +22,10 @@ Ext.onReady(function() {
         input.set({value: strategy});
     });
     
-    Ext.get('start_type').on('change',function() {
-        var type = this.getValue(), selectID;
-        hide("#start_att select");
-        clearAttribute(false, type);
-        if (type == 'none') {            
-            hide('#start_att');
-        } else {
-            selectID = "id_" + type + "_attribute";
-            show('start_att',  selectID);
-        }
-        if (type == 'text') {
+    Ext.get('id_attribute').on('change',function() {
+        hide("#startformat");
+        if (getSelectedType(this) !== 'Date') {
             show('startformat');
-        } else {
-            hide("#startformat");
         }
     });
     
@@ -47,22 +37,17 @@ Ext.onReady(function() {
         }
     });
     
-    Ext.get('end_type').on('change',function() {
-        var type = this.getValue(), selectID;
-        hide("#end_att select");
-        clearAttribute(true, type);
-        if (type == 'none') {            
-            hide('#end_att');
-        } else {
-            selectID = "id_end_" + type + "_attribute";
-            show('end_att', selectID);
-        }
-        if (type == 'text') {
+    Ext.get('id_end_attribute').on('change',function() {
+        hide("#endformat");
+        if (getSelectedType(this) !== 'Date') {
             show('endformat');
-        } else {
-            hide("#endformat");
         }
     });
+
+    function getSelectedType(el) {
+        var matched = /\[(.+)\]/.exec(el.getValue());
+        return matched && matched[1];
+    }
     
     function validate() {
         var val = yesNoValue('hastime'), feedback = [], i, attType;
@@ -80,23 +65,19 @@ Ext.onReady(function() {
                 }
             }
             
-            attType = Ext.get('start_type').getValue();
-            if (attType == 'none') {
-                feedback.push('no-type-start');
-            } else {
-                val = Ext.get("id_" + attType + "_attribute").getValue();
-                if (!val) {
-                    feedback.push('no-startatt');
-                }
-                if (attType == 'text') {
-                    val = Ext.get('format_select').getValue();
-                    if (val == '0') {
-                        feedback.push('no-format-type-start')
-                    } else if (val == '2') {
-                        val = Ext.get('id_text_attribute_format').getValue();
-                        if (!val) {
-                            feedback.push('no-startformat');
-                        }
+            val = Ext.get('id_attribute').getValue();
+            if (!val) {
+                feedback.push('no-startatt');
+            }
+            attType = getSelectedType(Ext.get('id_attribute'));
+            if (attType !== 'Date') {
+                val = Ext.get('format_select').getValue();
+                if (val == '0') {
+                    feedback.push('no-format-type-start')
+                } else if (val == '2') {
+                    val = Ext.get('id_attribute_format').getValue();
+                    if (!val) {
+                        feedback.push('no-startformat');
                     }
                 }
             }
@@ -105,26 +86,26 @@ Ext.onReady(function() {
             if (val == null) {
                 feedback.push('no-end');
             } else if (val) {
-                attType = Ext.get('end_type').getValue();
-                if (attType == 'none') {
-                    feedback.push('no-type-end');
-                } else {
-                    val = Ext.get("id_end_" + attType + "_attribute").getValue();
-                    if (!val) {
-                        feedback.push('no-endatt');
-                    }
-                    if (attType == 'text') {
-                        val = Ext.get('format_select').getValue();
-                        if (val == '0') {
-                            feedback.push('no-format-type-end').getValue();
-                        } else if (val == '2') {
-                            val = Ext.get('id_end_text_attribute_format').getValue();
-                            if (!val) {
-                                feedback.push('no-endformat');
-                            }
+                val = Ext.get("id_end_attribute").getValue();
+                if (!val) {
+                    feedback.push('no-endatt');
+                }
+                attType = getSelectedType(Ext.get('id_end_attribute'));
+                if (attType !== 'Date') {
+                    val = Ext.get('end_format_select').getValue();
+                    if (val == '0') {
+                        feedback.push('no-format-type-end');
+                    } else if (val == '2') {
+                        val = Ext.get('id_end_attribute_format').getValue();
+                        if (!val) {
+                            feedback.push('no-endformat');
                         }
                     }
                 }
+            }
+
+            if (Ext.get('id_attribute').getValue() === Ext.get("id_end_attribute").getValue()) {
+                feedback.push('start-end-same');
             }
         }
         if (feedback.length > 0) {
@@ -192,8 +173,8 @@ Ext.onReady(function() {
             }
         });
     }
-    enableCustom('format_select','id_text_attribute_format',Ext.get('format_input'));
-    enableCustom('end_format_select','id_end_text_attribute_format',Ext.get('end_format_input'));
+    enableCustom('format_select','id_attribute_format',Ext.get('format_input'));
+    enableCustom('end_format_select','id_end_attribute_format',Ext.get('end_format_input'));
    
     function checkAndClear(id, othersection) {
         var section = Ext.get(id);
