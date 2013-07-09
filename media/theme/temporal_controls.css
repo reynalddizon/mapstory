@@ -33,19 +33,8 @@ background-position: 0px -10px;
     background-position: 0px -10px;
 }
 
-#ms-toolbar button {
-    width: 80px;
-}
-
 #notes-button button {
     background-position: 0px 0px !important;
-}
-.gxp-icon-addfeature {
-    background-position: 0px 0px !important;
-}
-
-.gxp-icon-editfeature {
-   background-position: 0px 0px !important;
 }
 
 #map-bbar .x-btn-over button, #map-bbar .x-btn-pressed td button,
