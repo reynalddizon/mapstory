@@ -614,7 +614,7 @@ Step 7: Add annotations
 Step 8: Publish MapStory
 ------------------------
 
-The final step is to publish your map. At this point, your map will still be set to **Private**, as that is the default.
+At this point you're ready to publish your map. At this point, your map will still be set to **Private**, as that is the default.
 
 * Return to the main viewer by clicking the **View info** link.
 
