@@ -30,7 +30,7 @@
     <script type="text/javascript" src="{% url jscat %}"></script>
     <script type="text/javascript" src="{% url lang %}"></script>
     {% block extra_head %}{% endblock %}
-    {% if enable_analytics %}{% include 'ga.html' %}{% endif %}
+    {% google_analytics %}
 {% endblock %}
 
 {% block topbar_base %}

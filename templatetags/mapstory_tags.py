@@ -470,6 +470,11 @@ def twitter_card_meta(obj):
         'url' : absolutize(obj.get_absolute_url()),
         'image' : obj.get_thumbnail_url()
     })
+
+
+@register.simple_tag
+def google_analytics():
+    return loader.render_to_string('ga.html', {}) if settings.ENABLE_ANALYTICS else ''
     
 
 # @todo - make geonode location play better
