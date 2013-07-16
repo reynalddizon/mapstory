@@ -11,3 +11,11 @@ local_settings.py
 /thumbs/
 /uploaded/
 /scratch
+.coverage
+.fab.*
+.fab.prod
+.noseids
+/*.json
+/*.local
+/*-extract.zip
+nosetests.xml
