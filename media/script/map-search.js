@@ -173,9 +173,10 @@ if (!Function.prototype.bind) {
                     name: layer.name.split(':').pop(),
                     source: source.id
                 });
-
-                layerStore.add(record);
-                this.zoomToLayer(record);
+                if (record) {
+                    layerStore.add(record);
+                    this.zoomToLayer(record);
+                }
             });
 
         },
