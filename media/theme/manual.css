@@ -1,3 +1,6 @@
+input {
+    padding: 0;
+}
 #manual h1 {
     font-size: 22px;
 }

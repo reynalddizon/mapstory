@@ -614,7 +614,7 @@ Step 7: Add annotations
 Step 8: Publish MapStory
 ------------------------
 
-The final step is to publish your map. At this point, your map will still be set to **Private**, as that is the default.
+At this point you're ready to publish your map. At this point, your map will still be set to **Private**, as that is the default.
 
 * Return to the main viewer by clicking the **View info** link.
 
@@ -627,3 +627,15 @@ The final step is to publish your map. At this point, your map will still be set
 * Select **Anyone can search for and view**.
 
 Your map is published! You can give out the URL as noted above and others will be able to see your MapStory.
+
+Step 9: Share Your Mapstory
+---------------------------
+
+Your map is published! You can give out the URL as noted above and others will be able to see your MapStory. Now that your MapStory is published, make sure to share your work and your experience!
+
+* Share your MapStory on Twitter or Facebook with **#mapstory**
+* Create a Storyboard video and upload it to the MapStory You Tube account, and link to it in your MapStory's abstract
+* Create a How-To guide that walks others through how you built this MapStory, upload it to the MapStory Wiki, and link to it in your MapStory's abstract
+* Write a blog post about your experience and send it to `blog@mapstory.org`_.
+                    
+.. _blog@mapstory.org: blog@mapstory.org
