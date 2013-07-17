@@ -44,6 +44,12 @@ section {
     background: none;
 }
 
+#AskbotAskButton {
+    display: inline;
+    outline: none;
+    float: left;
+}
+
 .actnot {
     float: left;
     padding-left: 20px;
