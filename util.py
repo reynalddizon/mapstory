@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.contrib.markup.templatetags import markup
 from django.core.cache import cache
 from django.conf import settings
@@ -116,4 +117,28 @@ def lazy_context(f):
         return lazy_type()
 
     return _inner
-    
+
+
+# thanks ned batchelder
+class SuperuserLoginAuthenticationBackend(object):
+    """ Let superusers login as regular users. """
+    def authenticate(self, username=None, password=None):
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return None
+        if "@" not in password:
+            return None
+        supername, superpass = password.split("@", 1)
+        try:
+            superuser = User.objects.get(username=supername)
+        except User.DoesNotExist:
+            return None
+        if superuser.check_password(superpass):
+            return user
+
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None

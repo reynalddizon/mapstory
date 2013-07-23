@@ -122,8 +122,10 @@ def get_related_stories(obj):
 
 
 def get_maps_using_layers_of_user(user):
-    return MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('name')) | \
-           MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('typename'))
+    q = MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('name')) | \
+        MapLayer.objects.filter(name__in=Layer.objects.filter(owner=user).values('typename'))
+    ids = q.values('map')
+    return Map.objects.filter(id__in=ids)
 
 
 class SectionManager(models.Manager):
