@@ -369,11 +369,8 @@ class ContactDetail(Contact):
         return reverse('about_storyteller', args=[self.user.username])
 
     def __unicode__(self):
-        return u"ContactDetail %s (%s)" % (self.user, self.organization)
-
-
-    def __unicode__(self):
         return u"[ ContactDetail for %s ]" % self.display_name
+
 
 class ProfileIncomplete(models.Model):
     '''Track incomplete user profiles'''
