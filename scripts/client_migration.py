@@ -174,23 +174,22 @@ class UseVirtualOWSURL(ConfigMigration):
     query_set = MapLayer.objects.exclude(ows_url__startswith='http').exclude(ows_url__isnull=True) 
 
     def process_model(self, m):
-	print 'processing %s, map=%s' % (m.name, m.map.id)
-	if m.name.find('geonode:') == 0:
-	    print 'updating name to remove prefix'
-	    m.name = m.name.replace('geonode:', '')
-		
-        m.ows_url = '%sgeonode/%s/wms' % (settings.GEOSERVER_BASE_URL, m.name)
-        print 'updating ows_url=%s' % m.ows_url
-	config = json.loads(m.source_params)
-	config['id'] = 'geonode:%s-search' % m.name
-	print 'updating source_params.id to %s' % config['id']
-	m.source_params = json.dumps(config)
-	config = json.loads(m.layer_params)
-	if 'capability' in config:
-	    config['capability']['prefix'] = m.name
-	    config['capability']['name'] = m.name
-	    print 'adjusted capability name and prefix to %s' % m.name
-    	    m.layer_params = json.dumps(config)
+        print 'processing %s, map=%s' % (m.name, m.map.id)
+        if m.name.find('geonode:') == 0:
+            print 'updating name to remove prefix'
+            m.name = m.name.replace('geonode:', '')
+            m.ows_url = '%sgeonode/%s/wms' % (settings.GEOSERVER_BASE_URL, m.name)
+            print 'updating ows_url=%s' % m.ows_url
+        config = json.loads(m.source_params)
+        config['id'] = 'geonode:%s-search' % m.name
+        print 'updating source_params.id to %s' % config['id']
+        m.source_params = json.dumps(config)
+        config = json.loads(m.layer_params)
+        if 'capability' in config:
+            config['capability']['prefix'] = m.name
+            config['capability']['name'] = m.name
+            print 'adjusted capability name and prefix to %s' % m.name
+            m.layer_params = json.dumps(config)
 
 
 def _migrations():
