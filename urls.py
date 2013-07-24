@@ -10,11 +10,15 @@ from mapstory.forms import ProfileForm
 from mapstory.views import SignupView
 from hitcount.views import update_hit_count_ajax
 from account.views import ConfirmEmailView
+from account.views import LoginView
+from account.views import LogoutView
+
+import hmac
+import hashlib
 
 # load our social signals
 from mapstory import social_signals
 
-# Uncomment the next two lines to enable the admin:
 from django.contrib import admin
 admin.autodiscover()
 
@@ -32,6 +36,26 @@ sitemaps = {
     "layer": LayerSitemap,
     "map": MapSitemap
 }
+
+
+# hack login/logout to set cookies for the warper
+# this will only work if the site is running on mapstory.org
+class WarperCookieLogin(LoginView):
+    def form_valid(self, form):
+        resp = super(WarperCookieLogin, self).form_valid(form)
+        key = getattr(settings, 'WARPER_KEY', 'abc123')
+        digested = hmac.new(key, form.user.username, hashlib.sha1).hexdigest()
+        cookie = '%s:%s' % (form.user.username, digested)
+        resp.set_cookie('msid', cookie, domain='warper.mapstory.org', httponly=True)
+        return resp
+
+
+class WarperCookieLogout(LogoutView):
+    def post(self, *args, **kwargs):
+        resp = super(WarperCookieLogout, self).post(self, *args, **kwargs)
+        resp.delete_cookie('msid', domain='warper.mapstory.org')
+        return resp
+
 
 class NamedRedirect(RedirectView):
     name = None
@@ -70,6 +94,8 @@ urlpatterns += patterns('mapstory.views',
 
     # ugh, overrides
     # for the account views - we are only using these
+    url(r"^accounts/ajax_login", WarperCookieLogin.as_view(), name="account_login"),
+    url(r"^accounts/logout", WarperCookieLogout.as_view(), name="account_logout"),
     url(r"^account/confirm_email/(?P<key>\w+)/$", ConfirmEmailView.as_view(), name="account_confirm_email"),
     url(r"^account/signup/$", SignupView.as_view(), name="account_signup"),
     # and this from geonode
