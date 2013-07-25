@@ -173,7 +173,11 @@
             <div class="box mrg-btm describe-object">
                 <div class="story-detail">
                     {% warn_status request layer %}
+                    {% if gs_error %}
+                    <div class="alert-error" style="height:74px; padding:22%; text-align: center">{% include "maps/_geoserver_down.html" %}</div>
+                    {% else %}
                     <div id="preview_map"></div>
+                    {% endif %}
                     <div class="metrics">
                         {% map_view_hitcount layer %}
                         {% overall_rating layer "layer" as layer_rating %}
@@ -219,7 +223,9 @@
                             {% endif %}
                         </div>
                         <div class="tab-pane" id="actions6">
-                            {% if user.is_authenticated %}
+                            {% if gs_error %}
+                            {% include "maps/_geoserver_down.html" %}
+                            {% elif user.is_authenticated %}
                             <h4>Download this StoryLayer:</h4>
                             <div class="btn-group">
                                 <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
@@ -253,6 +259,9 @@
                             <span style="float:right">
                                 {% manual_link "styling" "Style Help?" %}
                             </span>
+                            {% if gs_error %}
+                            {% include "maps/_geoserver_down.html" %}
+                            {% else %}
                             <div id="style-preview" class="styles-list">
                                 <h4>Change Style (Preview)</h4>
                                 <input type="radio" name="style" id="{{layer.publishing.default_style.name}}" value="{{layer.publishing.default_style.name}}" checked="checked"/>
@@ -297,6 +306,7 @@
                                 <a href="#" class="btn">Upload</a>
                                 {% csrf_token %}
                             </form>
+                            {% endif %} {# end of gs_error #}
                          </div>
                          {% endif %}
                     </div>
