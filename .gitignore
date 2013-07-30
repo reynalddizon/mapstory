@@ -10,7 +10,6 @@ local_settings.py
 /sitestatic
 /thumbs/
 /uploaded/
-/scratch
 .coverage
 .fab.*
 .fab.prod
@@ -19,3 +18,4 @@ local_settings.py
 /*.local
 /*-extract.zip
 nosetests.xml
+/scratch
