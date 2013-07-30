@@ -44,6 +44,21 @@ section {
     background: none;
 }
 
+#AskbotAskButton {
+    display: inline;
+    outline: none;
+    float: left;
+}
+
+/** fixes for scrollbar **/
+#AskbotAskWidget1 div {
+    height: 530px !important;
+}
+#AskbotAskWidget1 iframe {
+    border: none;
+    height: 510px !important;
+}
+
 .actnot {
     float: left;
     padding-left: 20px;
