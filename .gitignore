@@ -18,3 +18,4 @@ local_settings.py
 /*.local
 /*-extract.zip
 nosetests.xml
+/scratch

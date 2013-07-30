@@ -1,3 +1,4 @@
+from datetime import datetime
 import random
 import operator
 import os
@@ -9,6 +10,7 @@ import urllib
 import json
 
 from django.conf import settings
+from django.contrib.gis.db import models as gis
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import models
@@ -29,6 +31,7 @@ from geonode.core.models import ANONYMOUS_USERS
 from geonode.maps.models import Contact
 from geonode.maps.models import Map
 from geonode.maps.models import MapLayer
+from geonode.maps.models import map_copied_signal
 from geonode.maps.models import Layer
 from geonode.maps.models import LayerManager
 from geonode.upload.signals import upload_complete
@@ -579,8 +582,45 @@ class PublishingStatus(models.Model):
         obj.set_gen_level(AUTHENTICATED_USERS, level)
         obj.set_user_level(owner, obj.LEVEL_ADMIN)
         models.Model.save(self, *args)
-        
-        
+
+
+class AnnotationManager(gis.GeoManager):
+    
+    def copy_map_annotations(self, target, source_id):
+        source = Map.objects.get(id=source_id)
+        copies = []
+        for ann in source.annotation_set.all():
+            ann.map = target
+            ann.pk = None
+            copies.append(ann)
+        Annotation.objects.bulk_create(copies)
+
+
+class Annotation(models.Model):
+    objects = AnnotationManager()
+
+    map = models.ForeignKey(Map)
+    title = models.TextField()
+    content = models.TextField(blank=True, null=True)
+    the_geom = gis.GeometryField(blank=True, null=True)
+    start_time = models.BigIntegerField(blank=True, null=True)
+    end_time = models.BigIntegerField(blank=True, null=True)
+    in_timeline = models.BooleanField()
+    in_map = models.BooleanField()
+    appearance = models.TextField(blank=True, null=True)
+
+    def _timefmt(self, val):
+        return datetime.isoformat(datetime.utcfromtimestamp(val))
+
+    @property
+    def start_time_str(self):
+        return self._timefmt(self.start_time) if self.start_time else ''
+
+    @property
+    def end_time_str(self):
+        return self._timefmt(self.end_time) if self.end_time else ''
+
+
 def audit_layer_metadata(layer):
     '''determine if metadata is complete to allow publishing'''
     return all([
@@ -648,6 +688,10 @@ def create_user_activity(sender, instance, created, **kw):
         UserActivity.objects.create(user=instance)
 
 
+def map_copied(new_map, source_id, **kw):
+    Annotation.objects.copy_map_annotations(new_map, source_id)
+
+
 def audit_profile(sender, user, avatar, **kw):
     user.get_profile().update_audit()
 
@@ -672,6 +716,8 @@ upload_complete.connect(set_publishing_private, sender=None)
 upload_complete.connect(configure_gwc, sender=None)
 # @annoyatron2 - after map is saved, set_default_permissions is called - hack this
 Map.set_default_permissions = lambda s: None
+
+map_copied_signal.connect(map_copied)
 
 # ensure hit count records are created up-front
 signals.post_save.connect(create_hitcount, sender=Map)

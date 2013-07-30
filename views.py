@@ -10,6 +10,7 @@ from geoserver.catalog import ConflictingDataError
 from mapstory import models
 from mapstory.util import lazy_context
 from mapstory.util import render_manual
+from mapstory.forms import AnnotationForm
 from mapstory.forms import CheckRegistrationForm
 from mapstory.forms import StyleUploadForm
 from mapstory.forms import LayerForm
@@ -19,13 +20,16 @@ from dialogos.models import Comment
 
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
+from django.core import serializers
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.core.paginator import EmptyPage
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from django.contrib.gis.geos import GEOSGeometry
 from django.db.models import signals
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
@@ -38,7 +42,9 @@ from django.template import defaultfilters as filters
 from django.contrib.contenttypes.models import ContentType
 from django.views.decorators.cache import cache_page
 
+
 from lxml import etree
+import csv
 from datetime import datetime
 import json
 import math
@@ -458,14 +464,114 @@ class SignupView(account.views.SignupView):
 
    form_class = CheckRegistrationForm
 
+@transaction.commit_on_success()
+def annotations(req, mapid):
+    '''management of annotations for a given mapid'''
+
+    if req.method == 'GET':
+        cols = [ f.name for f in models.Annotation._meta.fields if f.name not in ('map','the_geom') ]
+
+        mapobj = _resolve_object(req, models.Map, 'maps.view_map',
+                                 allow_owner=True, id=mapid)
+        ann = models.Annotation.objects.filter(map=mapid)
+        if bool(req.GET.get('in_map', False)):
+            ann = ann.filter(in_map=True)
+        if bool(req.GET.get('in_timeline', False)):
+            ann = ann.filter(in_timeline=True)
+        if 'page' in req.GET:
+            page = int(req.GET['page'])
+            page_size = 25
+            start = page * page_size
+            end = start + page_size
+            ann = ann[start:end]
+        if 'csv' in req.GET:
+            response = HttpResponse(mimetype='text/csv')
+            response['Content-Disposition'] = 'attachment; filename=map-%s-annotations.csv' % mapobj.id
+            writer = csv.writer(response)
+            writer.writerow(cols)
+            sidx = cols.index('start_time')
+            eidx = cols.index('end_time')
+            for a in ann:
+                vals = [ getattr(a, c) for c in cols if c not in ('start_time','end_time')]
+                vals[sidx] = a.start_time_str
+                vals[eidx] = a.end_time_str
+                writer.writerow(vals)
+            return response
+        # strip the superfluous id, it will be added at the feature level
+        props = [ c for c in cols if c != 'id' ]
+        def encoder(query_set):
+            results = []
+            for res in query_set:
+                feature = { 'id' : res.id}
+                if res.the_geom:
+                    geometry = {}
+                    geometry['type'] = res.the_geom.geom_type
+                    geometry['coordinates'] = res.the_geom.coords
+                    feature['geometry'] = geometry
+                fp = feature['properties'] = {}
+                for p in props:
+                    val = getattr(res, p)
+                    if val:
+                        fp[p] = val
+                results.append(feature)
+            return results
+
+        return json_response({'type':'FeatureCollection','features':encoder(ann)})
+
+    if req.method == 'POST':
+        mapobj = _resolve_object(req, models.Map, 'maps.change_map',
+                                 allow_owner=True, id=mapid)
+        # either a bulk upload or a JSON change
+        action = 'upsert'
+        get_props = lambda r: r
+
+        if req.FILES:
+            lines = iter(req.FILES.values()).next().read().split('\n')
+            data = csv.DictReader(lines)
+        else:
+            data = json.loads(req.body)
+            if isinstance(data, dict):
+                action = data.get('action', action)
+            if 'features' in data:
+                data = data.get('features')
+                get_props = lambda r: r['properties']
+
+        if action == 'delete':
+            models.Annotation.objects.filter(pk__in=data['ids'], map=mapobj).delete()
+            return HttpResponse("OK")
+
+        errors = []
+        for i,r in enumerate(data):
+            props = get_props(r)
+            props['map'] = mapobj.id
+            ann = None
+            id = r.get('id', None)
+            if id:
+                ann = models.Annotation.objects.get(map=mapobj, pk=id)
+
+            # form expects everything in the props, copy geometry in
+            if 'geometry' in r:
+                props['geometry'] = r['geometry']
+            form = AnnotationForm(props, instance=ann)
+            if not form.is_valid():
+                errors.append((i, form.errors))
+            else:
+                form.save()
+        if errors:
+            body = None
+        else:
+            body = {'success' : True}
+        return json_response(body=body, errors=errors)
+
+    return HttpResponse(status=400)
+
+
 @login_required
 def create_annotations_layer(req, mapid):
     '''Create an annotations layer with the predefined schema.
     
     @todo ugly hack - using existing view to allow this
     '''
-    from geonode.maps.views import _create_layer
-    
     mapobj = get_object_or_404(Map,pk=mapid)
     
     if req.method != 'POST':
