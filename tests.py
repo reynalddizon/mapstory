@@ -60,6 +60,8 @@ class SocialTest(TestCase):
         self.assertEqual(1, len(actions))
         self.assertEqual('bobby published layer2 Layer 0 minutes ago', str(actions[0]))
 
+        # ensure other actions deleted
+        self.admin.actor_actions.all().delete()
         # now create a map
         admin_map = Map.objects.create(owner=self.admin, zoom=1, center_x=0, center_y=0, title='map1')
         # have to use a 'dummy' map to create the appropriate JSON
@@ -385,6 +387,7 @@ class AnnotationsTest(TestCase):
         resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
         resp = json.loads(resp.content)
         self.assertEqual(resp['success'], True)
+        self.assertEqual([2], resp['ids'])
         ann = Annotation.objects.get(id=ann.id + 1)
         self.assertEqual(ann.title, "new ann")
 
