@@ -524,10 +524,14 @@ def annotations(req, mapid):
         # either a bulk upload or a JSON change
         action = 'upsert'
         get_props = lambda r: r
+        created = []
+        def id_collector(form):
+            created.append(form.instance.id)
 
         if req.FILES:
             lines = iter(req.FILES.values()).next().read().split('\n')
             data = csv.DictReader(lines)
+            id_collector = lambda f: None
         else:
             data = json.loads(req.body)
             if isinstance(data, dict):
@@ -538,7 +542,7 @@ def annotations(req, mapid):
 
         if action == 'delete':
             models.Annotation.objects.filter(pk__in=data['ids'], map=mapobj).delete()
-            return HttpResponse("OK")
+            return json_response({'success' : True})
 
         errors = []
         for i,r in enumerate(data):
@@ -557,10 +561,14 @@ def annotations(req, mapid):
                 errors.append((i, form.errors))
             else:
                 form.save()
+            if id is None:
+                id_collector(form)
         if errors:
             body = None
         else:
             body = {'success' : True}
+            if created:
+                body['ids'] = created
         return json_response(body=body, errors=errors)
 
     return HttpResponse(status=400)

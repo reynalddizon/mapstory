@@ -387,6 +387,7 @@ class AnnotationsTest(TestCase):
         resp = self.c.post(reverse('annotations',args=[self.dummy.id]), data, "application/json")
         resp = json.loads(resp.content)
         self.assertEqual(resp['success'], True)
+        self.assertEqual([2], resp['ids'])
         ann = Annotation.objects.get(id=ann.id + 1)
         self.assertEqual(ann.title, "new ann")
 
