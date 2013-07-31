@@ -17,6 +17,8 @@ from django.db import models
 from django.db.models import Count
 from django.db.models import signals
 from django.db.models import Q
+from django.db.models.signals import post_delete
+from django.dispatch.dispatcher import receiver
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -380,7 +382,7 @@ class ProfileIncomplete(models.Model):
 
 # cannot be called Organization - the organization field is used already in Contact
 class Org(ContactDetail):
-    slug = models.SlugField(max_length=64, blank=True)
+    slug = models.SlugField(max_length=64, blank=True, unique=True)
     members = models.ManyToManyField(User, blank=True)
     banner_image = models.URLField(null=True, blank=True)
     
@@ -393,10 +395,16 @@ class Org(ContactDetail):
         if self.user is None:
             self.user = User.objects.create(username=self.organization)
             self.id = ContactDetail.objects.filter(user=self.user)[0].id
-        self.name = self.organization
-        slugtext = self.organization.replace('&','and')
-        self.slug = defaultfilters.slugify(slugtext)
+        if not self.name:
+            self.name = self.organization
+        if not self.slug:
+            self.slug = Org.slugify_org(self.organization)
         models.Model.save(self)
+
+    @staticmethod
+    def slugify_org(text):
+        slugtext = text.replace('&','and')
+        return defaultfilters.slugify(slugtext)
 
     def get_link(self, link_id):
         try:
@@ -694,6 +702,11 @@ def map_copied(new_map, source_id, **kw):
 
 def audit_profile(sender, user, avatar, **kw):
     user.get_profile().update_audit()
+
+
+@receiver(post_delete, sender=Org)
+def org_delete_user(sender, instance, **kwargs):
+    instance.user.delete()
 
 
 signals.post_save.connect(create_user_activity, sender=User)
