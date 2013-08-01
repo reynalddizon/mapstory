@@ -12,7 +12,6 @@
                     </ul>
             </form>
     {% if ENABLE_SOCIAL_LOGIN %}
-            <a href="{% url socialauth_begin 'twitter' %}"><img src="{% static 'img/login_tw.png' %}" border=0></a>&nbsp;&nbsp;
             <a href="{% url socialauth_begin 'facebook' %}"><img src="{% static 'img/login_fb.png' %}" border=0></a>&nbsp;&nbsp;
             <a href="{% url socialauth_begin 'google-oauth2' %}"><img src="{% static 'img/login_goog.png' %}" border=0></a>
     {% endif %} 
