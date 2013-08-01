@@ -216,6 +216,10 @@ def get_user_avatar(backend, details, response, social_user, uid,\
         a.avatar.save(name, File(img_temp))
         user.avatar_set.add(a)
 
+def audit_user(backend, details, response, social_user, uid,\
+                    user, *args, **kwargs):
+    user.get_profile().update_audit()
+
 register_save_handler(ContactDetail, create_verb='joined MapStory', provide_user=False)
 register_save_handler(Layer, create_verb='uploaded')
 register_save_handler(Map)
