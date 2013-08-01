@@ -213,7 +213,7 @@ var thumbURL = "{% url geonode.maps.views.map_controller map.id %}?thumbnail";
         <div class="span4">
             {% about_storyteller map %}
 
-            {% by_storyteller map %}
+            {% by_storyteller map request %}
 
             {% related_mapstories map %}
 

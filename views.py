@@ -371,12 +371,12 @@ def add_to_map(req,id,typename):
 
 def _by_storyteller_pager(req, user, what):
     if what == 'maps':
-        query = models.PublishingStatus.objects.get_public(user, Map)
+        query = models.PublishingStatus.objects.get_public(user, Map, req.user)
         exclude = req.GET.get('exclude', None) if req else None
         if exclude:
             query = query.exclude(id=exclude)
     elif what == 'layers':
-        query = models.PublishingStatus.objects.get_public(user, Layer)
+        query = models.PublishingStatus.objects.get_public(user, Layer, req.user)
         for e in settings.LAYER_EXCLUSIONS:
             query = query.exclude(name__regex=e)
     else:
