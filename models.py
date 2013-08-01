@@ -518,9 +518,13 @@ PUBLISHING_STATUS_CHOICES = [
     (PUBLISHING_STATUS_PUBLIC,PUBLISHING_STATUS_PUBLIC)
 ]
 
+
 class PublishingStatusMananger(models.Manager):
-    def get_public(self, user, model):
-        return model.objects.filter(owner=user, publish__status=PUBLISHING_STATUS_PUBLIC)
+    def get_public(self, user, model, viewer=None):
+        query = model.objects.filter(owner=user)
+        if viewer != user:
+            query = query.filter(publish__status=PUBLISHING_STATUS_PUBLIC)
+        return query
     def get_in_progress(self, user, model):
         if model == Layer:
             # don't show annotations
@@ -541,6 +545,7 @@ class PublishingStatusMananger(models.Manager):
         # verify a valid status
         stat.clean_fields()
         stat.save()
+
 
 class PublishingStatus(models.Model):
     '''This is a denormalized model - could have gone with a content-type

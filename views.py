@@ -22,6 +22,7 @@ from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.core import serializers
 from django.core.cache import cache
+from django.core.exceptions import SuspiciousOperation
 from django.core.paginator import Paginator
 from django.core.paginator import EmptyPage
 from django.core.exceptions import PermissionDenied
@@ -100,6 +101,15 @@ def manual(req):
     }))
 
 
+def _get_requested_page(req):
+    try:
+        return int(req.REQUEST.get('page',1)) if req else 1
+    except ValueError, ex:
+        if settings.DEBUG:
+            raise ex
+        return 1
+
+
 def _related_stories_pager(section=None, map_obj=None):
     if section:
         target = get_object_or_404(models.Section, slug=section)
@@ -111,7 +121,7 @@ def _related_stories_pager(section=None, map_obj=None):
 
 def _related_stories_page(req, section=None, map_obj=None):
     target, pager = _related_stories_pager(section=section, map_obj=map_obj)
-    page_num = int(req.REQUEST.get('page',1))
+    page_num = _get_requested_page(req)
     page = None
     try:
         page = pager.page(page_num)
@@ -361,12 +371,12 @@ def add_to_map(req,id,typename):
 
 def _by_storyteller_pager(req, user, what):
     if what == 'maps':
-        query = models.PublishingStatus.objects.get_public(user, Map)
+        query = models.PublishingStatus.objects.get_public(user, Map, req.user)
         exclude = req.GET.get('exclude', None) if req else None
         if exclude:
             query = query.exclude(id=exclude)
     elif what == 'layers':
-        query = models.PublishingStatus.objects.get_public(user, Layer)
+        query = models.PublishingStatus.objects.get_public(user, Layer, req.user)
         for e in settings.LAYER_EXCLUSIONS:
             query = query.exclude(name__regex=e)
     else:
@@ -394,7 +404,7 @@ def storyteller_activity_pager(req, username, what='actions'):
     user = get_object_or_404(User, username=username)
     from mapstory.templatetags.mapstory_tags import activity_item
     pager = _storyteller_activity_pager(user, what)
-    page_num = int(req.REQUEST.get('page',1)) if req else 1
+    page_num = _get_requested_page(req)
     page = None
     try:
         page = pager.page(page_num)
@@ -411,7 +421,7 @@ def storyteller_activity_pager(req, username, what='actions'):
 def by_storyteller_pager(req, user, what):
     user = get_object_or_404(User, username=user)
     pager = _by_storyteller_pager(req, user, what)
-    page_num = int(req.REQUEST.get('page',1)) if req else 1
+    page_num = _get_requested_page(req)
     page = None
     try:
         page = pager.page(page_num)

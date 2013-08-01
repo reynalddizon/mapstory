@@ -256,15 +256,16 @@ class AddToMapNode(template.Node):
             'layer' : layer
         })
 
+
 @register.simple_tag
-def by_storyteller(obj):
+def by_storyteller(obj, req):
     if isinstance(obj, User):
         user = obj
     else:
         user = obj.owner
     template_name = "maps/_widget_by_storyteller.html"
-    maps_page = Page([], 0, _by_storyteller_pager(None, user, 'maps'))
-    layers_page = Page([], 0, _by_storyteller_pager(None, user, 'layers'))
+    maps_page = Page([], 0, _by_storyteller_pager(req, user, 'maps'))
+    layers_page = Page([], 0, _by_storyteller_pager(req, user, 'layers'))
     return loader.render_to_string(template_name,{
         'user':user,
         'maps_pager': maps_page,
