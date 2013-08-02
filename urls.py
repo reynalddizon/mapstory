@@ -2,6 +2,8 @@ from django.conf.urls.defaults import *
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core import urlresolvers
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.views.generic.simple import direct_to_template
 from django.views.generic import RedirectView
 from geonode.sitemap import LayerSitemap, MapSitemap
@@ -41,6 +43,16 @@ sitemaps = {
 # hack login/logout to set cookies for the warper
 # this will only work if the site is running on mapstory.org
 class WarperCookieLogin(LoginView):
+    def post(self, *args, **kwargs):
+        super(WarperCookieLogin, self).post(*args, **kwargs)
+        if self.request.user.is_authenticated():
+            return HttpResponse(status=200)
+        return HttpResponse(
+                    content="invalid login",
+                    status=400,
+                    mimetype="text/plain"
+                )
+
     def form_valid(self, form):
         resp = super(WarperCookieLogin, self).form_valid(form)
         key = getattr(settings, 'WARPER_KEY', 'abc123')
