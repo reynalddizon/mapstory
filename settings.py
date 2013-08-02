@@ -359,7 +359,12 @@ try:
 except ImportError:
     pass
 
+ACCOUNT_SIGNUP_REDIRECT_URL = '/profiles/edit/'
+
 if ENABLE_SOCIAL_LOGIN:
+
+    SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profiles/edit/'
+
     INSTALLED_APPS = INSTALLED_APPS + (
         'social_auth',
         'provider',
