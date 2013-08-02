@@ -100,7 +100,12 @@
     </div>
   {% endif %}
 
-{% if enough_storage %}
+{% if gs_error %}
+<div class="alert" style="padding:10%; height: 45px">
+  {% include "maps/_geoserver_down.html" %}
+</div>
+{% endif %}
+{% if enough_storage and not gs_error %}
 
   <div id="upload_form">
       <p id="zip-msg" class="alert alert-warn">Just a reminder: for MapStory to process a ZIP file, 
@@ -145,7 +150,6 @@
           </div>
       </div>
   </div>
-</div>
 <script type="text/javascript" src="{% static "script/layer_upload.js" %}"></script>
 <script type="text/javascript" src="{% static "script/zip.js" %}"></script>
 <script type="text/javascript">
@@ -158,6 +162,7 @@ setup({
 {% endautoescape %}
 </script>
 {% endif %}
+</div> {# twocol #}
 
 {% endblock %}
 
@@ -166,7 +171,7 @@ setup({
 {% block sidebar %}
 <div class="threecol">
     
-{% if incomplete %}
+{% if incomplete and not gs_error %}
 <h3>Resume Uploads</h3>
 <span id="no-uip" class="hide">You don't have any uploads to resume.</span>
 {% for u in incomplete %}
