@@ -600,7 +600,7 @@ class PublishingStatus(models.Model):
 
 class AnnotationManager(gis.GeoManager):
     
-    def copy_map_annotations(self, target, source_id):
+    def copy_map_annotations(self, source_id, target):
         source = Map.objects.get(id=source_id)
         copies = []
         for ann in source.annotation_set.all():
@@ -708,8 +708,8 @@ def create_user_activity(sender, instance, created, **kw):
         UserActivity.objects.create(user=instance)
 
 
-def map_copied(new_map, source_id, **kw):
-    Annotation.objects.copy_map_annotations(new_map, source_id)
+def map_copied(sender, source_id, **kw):
+    Annotation.objects.copy_map_annotations(source_id, sender)
 
 
 def audit_profile(sender, user, avatar, **kw):
