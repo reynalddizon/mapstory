@@ -7,7 +7,6 @@ from django.core.urlresolvers import reverse
 from geonode.maps.models import Layer
 from geonode.maps.models import Map
 from geonode.maps.models import MapLayer
-from geonode.maps.models import Thumbnail
 from geonode.simplesearch import models as simplesearch
 from mapstory import social_signals # this just needs activating but is not used
 from mapstory import forms
@@ -20,7 +19,6 @@ from mapstory.models import Link
 from mapstory.templatetags import mapstory_tags
 
 from agon_ratings.models import Rating
-from actstream.models import Action
 from dialogos.models import Comment
 from mailer import engine as email_engine
 
@@ -28,7 +26,7 @@ from datetime import timedelta
 import json
 import logging
 import re
-import StringIO
+import tempfile
 
 # these can just get whacked
 simplesearch.map_updated = lambda **kw: None
@@ -415,26 +413,46 @@ class AnnotationsTest(TestCase):
         '''test csv upload with update and insert'''
 
         self.make_annotations(self.dummy, 2)
+
+        header = u"id,title,content,lat,lon,start_time,end_time,appearance\n"
+
         # first row is insert, second update (as it has an id)
-        csv = StringIO.StringIO(
-            "id,title,content,lat,lon\n"
-            '"",foo bar,blah,5,10\n'
-            "1,bar foo,halb,10,20"
-        )
-        csv.name = 'data.csv'
+        fp = tempfile.NamedTemporaryFile(delete=True)
+        fp.write((
+            header +
+            u'"",foo bar,blah,5,10,2001/01/01,2005\n'
+            u"1,bar foo,halb,10,20,2010-01-01,,\n"
+            u"2,\u201c,bunk,20,30,,,"
+        ).encode('utf-8'))
+        fp.seek(0)
         # verify failure before login
-        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':csv})
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
         self.assertEqual(403, resp.status_code)
 
         # login, rewind the buffer and verify
         self.c.login(username='admin',password='admin')
-        csv.seek(0)
-        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':csv})
+        fp.seek(0)
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
         jsresp = json.loads(resp.content)
         self.assertEqual(True, jsresp['success'])
         ann = Annotation.objects.get(id=1)
         self.assertEqual('bar foo', ann.title)
         self.assertEqual(ann.the_geom.x, 20.)
+        ann = Annotation.objects.get(id=2)
+        self.assertEqual(u'\u201c', ann.title)
         ann = Annotation.objects.get(id=3)
         self.assertEqual('foo bar', ann.title)
         self.assertEqual(ann.the_geom.x, 10.)
+
+        # verify round trip of unicode quote
+        resp = self.c.get(reverse('annotations',args=[self.dummy.id]) + "?csv")
+        from mapstory.util import unicode_csv_dict_reader
+        x = list(unicode_csv_dict_reader(resp.content))
+        self.assertEqual(3, len(x))
+        by_content = dict( [(v['content'],v) for v in x] )
+        self.assertEqual(u'\u201c', by_content['bunk']['title'])
+        self.assertEqual('2010-01-01T00:00:00', by_content['halb']['start_time'])
+        self.assertEqual('2001-01-01T00:00:00', by_content['blah']['start_time'])
+        self.assertEqual('2005-01-01T00:00:00', by_content['blah']['end_time'])
+
+        #@todo more complete error handling in CSV

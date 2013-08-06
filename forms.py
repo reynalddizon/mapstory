@@ -1,3 +1,4 @@
+from ctypes import __init__
 from django import forms
 from django.contrib.gis.geos import Point
 from account.forms import SignupForm
@@ -5,6 +6,7 @@ from geonode.maps.models import Layer
 from mapstory.models import ContactDetail
 from mapstory.models import Annotation
 from mapstory.util import datetime_to_seconds
+from mapstory.util import parse_date_time
 import datetime
 import json
 import taggit
@@ -109,7 +111,13 @@ class CheckRegistrationForm(SignupForm):
 
 
 class AnnotationForm(forms.ModelForm):
+
+    def __init__(self, *args, **kwargs):
+        self.form_mode = kwargs.pop('form_mode','client')
+        super(AnnotationForm, self).__init__(*args, **kwargs)
+
     def full_clean(self):
+        self._my_errors = {}
         geom = self.data.get('geometry', None)
         if geom:
             # @todo - optimize me, round tripping json
@@ -119,36 +127,27 @@ class AnnotationForm(forms.ModelForm):
         self._convert_time('start_time')
         self._convert_time('end_time')
         super(AnnotationForm, self).full_clean()
+        self._errors.update(self._my_errors)
 
     def _convert_time(self, key):
         val = self.data.get(key, None)
         if not val: return
         numeric = None
-        try:
-            numeric = int(val)
-        except ValueError:
-            pass
+        # the client will send things back as ints
+        if self.form_mode == 'client':
+            try:
+                numeric = int(val)
+            except ValueError:
+                pass
+        # otherwise, parse as formatted strings
         if not numeric:
-            fmts = (
-                '%Y',
-                '%Y-%m',
-                '%Y-%m-%d',
-                '%Y-%m-%dT%H:%M:%S',
-            )
-            parsed = None
-            for f in fmts:
-                try:
-                    parsed = datetime.datetime.strptime(val, f)
-                    break
-                except:
-                    pass
-            if parsed is None:
-                self._errors[key] = ['Unable to parse "%s"' % val]
-                return
-            numeric = int(datetime_to_seconds(parsed))
-
-        self.data[key] = str(numeric)
-
+            try:
+                parsed = parse_date_time(val)
+            except ValueError, e:
+                self._my_errors[key] = str(e)
+            if parsed:
+                numeric = int(datetime_to_seconds(parsed))
+        self.data[key] = str(numeric) if numeric is not None else None
 
     class Meta:
         model = Annotation

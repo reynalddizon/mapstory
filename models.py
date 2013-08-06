@@ -39,6 +39,7 @@ from geonode.maps.models import LayerManager
 from geonode.upload.signals import upload_complete
 
 from mapstory import gwc_config
+from mapstory.util import parse_date_time
 
 from avatar.signals import avatar_updated
 from hitcount.models import HitCount
@@ -624,6 +625,12 @@ class Annotation(models.Model):
 
     def _timefmt(self, val):
         return datetime.isoformat(datetime.utcfromtimestamp(val))
+
+    def set_start(self, val):
+        self.start_time = parse_date_time(val)
+
+    def set_end(self, val):
+        self.end_time = parse_date_time(val)
 
     @property
     def start_time_str(self):

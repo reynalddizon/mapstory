@@ -5,6 +5,9 @@ from django.conf import settings
 from django.utils.encoding import smart_str, force_unicode
 from django.utils.safestring import mark_safe
 
+import codecs
+import csv
+from cStringIO import StringIO
 import hotshot
 import os
 import time
@@ -142,3 +145,37 @@ class SuperuserLoginAuthenticationBackend(object):
             return User.objects.get(pk=user_id)
         except User.DoesNotExist:
             return None
+
+
+dateparts = '%Y', '%m', '%d'
+timeparts = '%H', '%M', '%S'
+_patterns = []
+for i in xrange(len(dateparts)):
+    _patterns.append('/'.join(dateparts[0:i + 1]))
+    _patterns.append('-'.join(dateparts[0:i + 1]))
+for i in xrange(len(timeparts)):
+    time = ':'.join(timeparts[0:i + 1])
+    _patterns.append('/'.join(dateparts) + ' ' + time)
+    _patterns.append('/'.join(dateparts) + 'T' + time)
+del dateparts, timeparts
+
+
+def parse_date_time(val):
+    if val is None: return None
+    if val[0] == '-': raise ValueError('Alas, negative dates are not supported')
+    idx = val.find('.')
+    if idx > 0:
+        val = val[:idx]
+    for p in _patterns:
+        try:
+            return datetime.datetime.strptime(val, p)
+        except ValueError:
+            pass
+
+
+def unicode_csv_dict_reader(fp):
+    if isinstance(fp, basestring):
+        fp = StringIO(fp)
+    lines = ( line.encode('utf-8') for line in codecs.getreader('utf-8')(fp) )
+    reader = csv.DictReader(lines)
+    return ( dict([ (k, unicode(v,'utf-8')) for k,v in row.items() if v]) for row in reader)
