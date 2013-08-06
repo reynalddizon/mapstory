@@ -10,6 +10,7 @@ from geoserver.catalog import ConflictingDataError
 from mapstory import models
 from mapstory.util import lazy_context
 from mapstory.util import render_manual
+from mapstory.util import unicode_csv_dict_reader
 from mapstory.forms import AnnotationForm
 from mapstory.forms import CheckRegistrationForm
 from mapstory.forms import StyleUploadForm
@@ -45,8 +46,8 @@ from django.views.decorators.cache import cache_page
 
 
 from lxml import etree
+import codecs
 import csv
-from datetime import datetime
 import json
 import math
 import os
@@ -497,12 +498,16 @@ def annotations(req, mapid):
         if 'csv' in req.GET:
             response = HttpResponse(mimetype='text/csv')
             response['Content-Disposition'] = 'attachment; filename=map-%s-annotations.csv' % mapobj.id
+            response['Content-Encoding'] = 'utf-8'
             writer = csv.writer(response)
+            cols.remove('id')
             writer.writerow(cols)
             sidx = cols.index('start_time')
             eidx = cols.index('end_time')
+            # default csv writer chokes on unicode
+            encode = lambda v: v.encode('utf-8') if isinstance(v, basestring) else v
             for a in ann:
-                vals = [ getattr(a, c) for c in cols if c not in ('start_time','end_time')]
+                vals = [ encode(getattr(a, c)) for c in cols if c not in ('start_time','end_time')]
                 vals[sidx] = a.start_time_str
                 vals[eidx] = a.end_time_str
                 writer.writerow(vals)
@@ -535,13 +540,16 @@ def annotations(req, mapid):
         action = 'upsert'
         get_props = lambda r: r
         created = []
+        form_mode = 'client'
         def id_collector(form):
             created.append(form.instance.id)
 
         if req.FILES:
-            lines = iter(req.FILES.values()).next().read().split('\n')
-            data = csv.DictReader(lines)
+            fp = iter(req.FILES.values()).next()
+            # ugh, builtin csv reader chokes on unicode
+            data = unicode_csv_dict_reader(fp)
             id_collector = lambda f: None
+            form_mode = 'csv'
         else:
             data = json.loads(req.body)
             if isinstance(data, dict):
@@ -566,7 +574,7 @@ def annotations(req, mapid):
             # form expects everything in the props, copy geometry in
             if 'geometry' in r:
                 props['geometry'] = r['geometry']
-            form = AnnotationForm(props, instance=ann)
+            form = AnnotationForm(props, instance=ann, form_mode=form_mode)
             if not form.is_valid():
                 errors.append((i, form.errors))
             else:
