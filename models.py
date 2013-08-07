@@ -330,7 +330,7 @@ class ContactDetail(Contact):
         if not self._has_avatar():
             incomplete.append('Picture/Avatar')
         if not all([self.user.first_name, self.user.last_name]):
-            incomplete.append('Full Name')
+            incomplete.append('Full Name (First and Last)')
         if not self.blurb:
             incomplete.append('Blurb')
         return incomplete
@@ -351,9 +351,7 @@ class ContactDetail(Contact):
         incomplete = self.audit()
         if incomplete:
             pi, _ = ProfileIncomplete.objects.get_or_create(user=self.user)
-            pi.message = ('Please ensure the following '
-            'fields are complete: %s'
-            ) % ', '.join(incomplete)
+            pi.message = ', '.join(incomplete)
             pi.save()
         else:
             ProfileIncomplete.objects.filter(user=self.user_id).delete()
