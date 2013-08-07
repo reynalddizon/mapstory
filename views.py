@@ -541,6 +541,8 @@ def annotations(req, mapid):
         get_props = lambda r: r
         created = []
         form_mode = 'client'
+        content_type = None
+
         def id_collector(form):
             created.append(form.instance.id)
 
@@ -550,6 +552,7 @@ def annotations(req, mapid):
             data = unicode_csv_dict_reader(fp)
             id_collector = lambda f: None
             form_mode = 'csv'
+            content_type = 'text/html'
         else:
             data = json.loads(req.body)
             if isinstance(data, dict):
@@ -587,7 +590,7 @@ def annotations(req, mapid):
             body = {'success' : True}
             if created:
                 body['ids'] = created
-        return json_response(body=body, errors=errors)
+        return json_response(body=body, errors=errors, content_type=content_type)
 
     return HttpResponse(status=400)
 
