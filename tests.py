@@ -433,6 +433,8 @@ class AnnotationsTest(TestCase):
         self.c.login(username='admin',password='admin')
         fp.seek(0)
         resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
+        # response type must be text/html for ext fileupload
+        self.assertEqual('text/html', resp['content-type'])
         jsresp = json.loads(resp.content)
         self.assertEqual(True, jsresp['success'])
         ann = Annotation.objects.get(id=1)
