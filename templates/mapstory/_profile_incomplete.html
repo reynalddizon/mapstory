@@ -1,6 +1,6 @@
 <div class="alert alert-error">
-    <p>Your profile is incomplete.</p>
-    <p>{{ incomplete.message|safe }}</p>
+    <p>Take a second to complete your profile! Currently you're still missing:</p>
+    <p style="font-weight: bold">{{ incomplete.message|safe }}</p>
     {% if show_link %}
     <p>Please complete your profile <a href="{% url profiles_edit_profile %}">here</a></p>
     {% endif %}
