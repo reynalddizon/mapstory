@@ -120,6 +120,9 @@ class OrgAdminForm(forms.ModelForm):
             slug_error = 'The provided slug cannot be used'
         else:
             slug_text = cleaned_data['organization']
+            if len(slug_text) > 30:
+                raise forms.ValidationError('The initial org name must be less '
+                    ' than 30 characters. It can be changed later.')
             if User.objects.filter(username=slug_text).count():
                 raise forms.ValidationError('An org user with the given name already exists')
             slug_error = 'The provided org name cannot be used'
