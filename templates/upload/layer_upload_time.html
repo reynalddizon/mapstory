@@ -87,9 +87,6 @@
         <div id="no-int-base">
             Please indicate the interval at which your data were uploaded (every month, year, etc.).
         </div>
-        <div id="no-type-start">
-            Please indicate what kind of date the start date is.
-        </div>
         <div id="no-startatt">
             Please select which attribute contains the start date.
         </div>
@@ -102,9 +99,6 @@
         <div id="no-end">
             Please indicate whether the data has an end date.
         </div>
-        <div id="no-type-end">
-            Please indicate what kind of date the end date is.
-        </div>
         <div id="no-endatt">
             Please select which attribute contains the end date.
         </div>
@@ -113,6 +107,9 @@
         </div>
         <div id="no-endformat">
             Please specify the exact format of the end date.
+        </div>
+        <div id="start-end-same">
+            Please specify different attributes for the start and end date.
         </div>
     </div>
       
@@ -146,26 +143,9 @@
           
         <div id="starttime" class="formSection hide">
             <h4>Start Date/Time</h4>
-            <div>
-                <label class="align" for="start_type">Type</label>
-                <select id="start_type">
-                    <option selected="true" value="none"></option>
-                    {% if time_form.time_attribute %}
-                    <option value="time">Date/Time</option>
-                    {% endif %}
-                    {% if time_form.text_attribute %}
-                    <option value="text">Text</option>
-                    {% endif %}
-                    {% if time_form.year_attribute %}
-                    <option value="year">Year Number</option>
-                    {% endif %}
-                </select>
-            </div>
-            <div id="start_att" class="hide">
+            <div id="start_att">
                 <label class="align" for="">Attribute</label>
-                {{ time_form.time_attribute }}
-                {{ time_form.text_attribute }}
-                {{ time_form.year_attribute }}
+                {{ time_form.attribute }}
             </div>
             <div id="startformat" class="hide">
                 <label class="align" for="format_select">Date Format</label>
@@ -175,7 +155,7 @@
                     <option value="2">Custom</option>
                 </select>
                 <span id="format_input" style="visibility: hidden;" title="See sidebar for help">
-                    <label for="id_text_attribute_format">Custom Format:</label> {{ time_form.text_attribute_format }}
+                    <label for="id_attribute_format">Custom Format:</label> {{ time_form.attribute_format }}
                     {% manual_link "prep-time-formats" "View Guide" %}
                 </span>
             </div>
@@ -190,24 +170,9 @@
                 <input id="noend" type="radio" name="hasend"><label for="noend">No</label>
             </div>
             <div id="endtimeopts" class="hide">
-                <label class="align" for="end_type">Type</label>
-                <select id="end_type">
-                    <option selected="true" value="none"></option>
-                    {% if time_form.time_attribute %}
-                    <option value="time">Date/Time</option>
-                    {% endif %}
-                    {% if time_form.text_attribute %}
-                    <option value="text">Text</option>
-                    {% endif %}
-                    {% if time_form.year_attribute %}
-                    <option value="year">Number</option>
-                    {% endif %}
-                </select>
-                <div id="end_att" class="hide">
+                <div id="end_att">
                     <label class="align" for="">Attribute</label>
-                    {{ time_form.end_time_attribute }}
-                    {{ time_form.end_text_attribute }}
-                    {{ time_form.end_year_attribute }}
+                    {{ time_form.end_attribute }}
                 </div>
                 <div id="endformat" class="hide">
                     <label class="align" for="end_format_select">Date Format</label>
@@ -217,7 +182,7 @@
                         <option value="2">Custom</option>
                     </select>
                     <span id="end_format_input" style="visibility: hidden;" title="See sidebar for help">
-                        <label for="id_end_text_attribute_format">Custom Format:</label> {{ time_form.end_text_attribute_format }}
+                        <label for="id_end_attribute_format">Custom Format:</label> {{ time_form.end_attribute_format }}
                         {% manual_link "prep-time-formats" "View Guide" %}
                     </span>
                 </div>

@@ -120,8 +120,7 @@ def register_save_handler(model, **kwargs):
 
 
 def rating_handler(sender, instance, created, **kwargs):
-    # fall back on the rating user if no request user is found (for tests)
-    actor = user() or instance.user
+    actor = instance.user
     target = instance.content_object
     act = action(actor, verb='rated', action_object=instance, target=target)
     if actor != target.owner:
@@ -216,6 +215,10 @@ def get_user_avatar(backend, details, response, social_user, uid,\
                 a = user.avatar_set.model(user=user)
         a.avatar.save(name, File(img_temp))
         user.avatar_set.add(a)
+
+def audit_user(backend, details, response, social_user, uid,\
+                    user, *args, **kwargs):
+    user.get_profile().update_audit()
 
 register_save_handler(ContactDetail, create_verb='joined MapStory', provide_user=False)
 register_save_handler(Layer, create_verb='uploaded')

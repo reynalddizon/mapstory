@@ -96,6 +96,7 @@
             <script src="{% static "bootstrap/js/bootstrap-tooltip.js" %}"></script>
             <script src="{% static "bootstrap/js/bootstrap-transition.js" %}"></script>
             <script src="{% static "script/core.js" %}" type="text/javascript"></script>
+            <script src="{% static "script/askbot.js" %}" type="text/javascript"></script>
             {% if page.design_mode %}
             <script src="{% static "script/cssrefresh.js" %}" type="text/javascript"></script>
             {% endif %}
@@ -105,7 +106,7 @@
         {% block extra_body_base %}
             {% block extra_body %}{% endblock %}
         {% endblock %}
-        {% if ENABLE_USER_VOICE %}
+        {% if False %}
         <script type="text/javascript" src="{% static "script/user_voice.js" %}"></script>
         {% endif %}
         {% if ENABLE_SHARE_THIS %}

@@ -92,12 +92,14 @@ var thumbURL = "{% url geonode.maps.views.map_controller map.id %}?thumbnail";
         <div class="span4 top-detail-actions">
           <div class="btn-group">
             {% has_obj_perm user map "maps.change_map" as can_change %}
-            {% if can_change %}
+            {% if can_change and not gs_error %}
             <a class="btn"
                href="{% url geonode.maps.views.view map.id %}">Edit Mapstory</a>
             {% endif %}
+            {% if not gs_error %}
             <a class="btn"
                href="{% url geonode.maps.views.map_controller map.id %}#full">View fullscreen</a>
+            {% endif %}
           </div>
         </div>
     </div>
@@ -106,7 +108,11 @@ var thumbURL = "{% url geonode.maps.views.map_controller map.id %}?thumbnail";
             <div class="box mrg-btm describe-object">
                 <div class="story-detail">
                     {% warn_status request map %}
+                    {% if gs_error %}
+                    <div class="alert-error" style="height:74px; padding:22%; text-align: center">{% include "maps/_geoserver_down.html" %}</div>
+                    {% else %}
                     <div id="embedded_map"></div>
+                    {% endif %}
                     <div class="metrics">
                         {% map_view_hitcount map %}
                         {% overall_rating map "map" as map_rating %}
@@ -209,7 +215,7 @@ var thumbURL = "{% url geonode.maps.views.map_controller map.id %}?thumbnail";
         <div class="span4">
             {% about_storyteller map %}
 
-            {% by_storyteller map %}
+            {% by_storyteller map request %}
 
             {% related_mapstories map %}
 

@@ -147,7 +147,7 @@ GEONETWORK_BASE_URL = "http://localhost:8001/geonetwork/"
 # The username and password for a user with write access to GeoNetwork
 GEONETWORK_CREDENTIALS = "admin", "admin"
 
-AUTHENTICATION_BACKENDS = ('geonode.core.auth.GranularBackend',)
+AUTHENTICATION_BACKENDS = ('geonode.core.auth.GranularBackend','mapstory.util.SuperuserLoginAuthenticationBackend')
 
 GOOGLE_API_KEY = "ABQIAAAAkofooZxTfcCv9Wi3zzGTVxTnme5EwnLVtEDGnh-lFVzRJhbdQhQgAhB1eT_2muZtc0dl-ZSWrtzmrw"
 LOGIN_REDIRECT_URL = "/"
@@ -339,11 +339,12 @@ ABSOLUTE_URL_OVERRIDES = {
 #EMAIL_BACKEND = "mailer.backend.DbBackend"
 
 def resolve_user_url(u):
-    contacts = u.contact_set.all()
-    if contacts:
-        return contacts[0].contactdetail.get_absolute_url()
-    else:
-        return None
+    from django.db.models.base import ObjectDoesNotExist
+    try:
+        profile = u.get_profile()
+    except ObjectDoesNotExist:
+        profile = None
+    return profile.get_absolute_url() if profile else None
 
 ABSOLUTE_URL_OVERRIDES = {
     'auth.user': resolve_user_url
@@ -358,7 +359,12 @@ try:
 except ImportError:
     pass
 
+ACCOUNT_SIGNUP_REDIRECT_URL = '/profiles/edit/'
+
 if ENABLE_SOCIAL_LOGIN:
+
+    SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/profiles/edit/'
+
     INSTALLED_APPS = INSTALLED_APPS + (
         'social_auth',
         'provider',
@@ -378,4 +384,5 @@ if ENABLE_SOCIAL_LOGIN:
         'social_auth.backends.pipeline.social.associate_user',
         'social_auth.backends.pipeline.user.update_user_details',
         'mapstory.social_signals.get_user_avatar', 
+        'mapstory.social_signals.audit_user', 
 )

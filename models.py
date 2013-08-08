@@ -1,3 +1,4 @@
+from datetime import datetime
 import random
 import operator
 import os
@@ -9,12 +10,15 @@ import urllib
 import json
 
 from django.conf import settings
+from django.contrib.gis.db import models as gis
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Count
 from django.db.models import signals
 from django.db.models import Q
+from django.db.models.signals import post_delete
+from django.dispatch.dispatcher import receiver
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -29,11 +33,13 @@ from geonode.core.models import ANONYMOUS_USERS
 from geonode.maps.models import Contact
 from geonode.maps.models import Map
 from geonode.maps.models import MapLayer
+from geonode.maps.models import map_copied_signal
 from geonode.maps.models import Layer
 from geonode.maps.models import LayerManager
 from geonode.upload.signals import upload_complete
 
 from mapstory import gwc_config
+from mapstory.util import parse_date_time
 
 from avatar.signals import avatar_updated
 from hitcount.models import HitCount
@@ -324,7 +330,7 @@ class ContactDetail(Contact):
         if not self._has_avatar():
             incomplete.append('Picture/Avatar')
         if not all([self.user.first_name, self.user.last_name]):
-            incomplete.append('Full Name')
+            incomplete.append('Full Name (First and Last)')
         if not self.blurb:
             incomplete.append('Blurb')
         return incomplete
@@ -345,9 +351,7 @@ class ContactDetail(Contact):
         incomplete = self.audit()
         if incomplete:
             pi, _ = ProfileIncomplete.objects.get_or_create(user=self.user)
-            pi.message = ('Please ensure the following '
-            'fields are complete: %s'
-            ) % ', '.join(incomplete)
+            pi.message = ', '.join(incomplete)
             pi.save()
         else:
             ProfileIncomplete.objects.filter(user=self.user_id).delete()
@@ -366,11 +370,8 @@ class ContactDetail(Contact):
         return reverse('about_storyteller', args=[self.user.username])
 
     def __unicode__(self):
-        return u"ContactDetail %s (%s)" % (self.user, self.organization)
-
-
-    def __unicode__(self):
         return u"[ ContactDetail for %s ]" % self.display_name
+
 
 class ProfileIncomplete(models.Model):
     '''Track incomplete user profiles'''
@@ -380,7 +381,7 @@ class ProfileIncomplete(models.Model):
 
 # cannot be called Organization - the organization field is used already in Contact
 class Org(ContactDetail):
-    slug = models.SlugField(max_length=64, blank=True)
+    slug = models.SlugField(max_length=64, blank=True, unique=True)
     members = models.ManyToManyField(User, blank=True)
     banner_image = models.URLField(null=True, blank=True)
     
@@ -393,10 +394,16 @@ class Org(ContactDetail):
         if self.user is None:
             self.user = User.objects.create(username=self.organization)
             self.id = ContactDetail.objects.filter(user=self.user)[0].id
-        self.name = self.organization
-        slugtext = self.organization.replace('&','and')
-        self.slug = defaultfilters.slugify(slugtext)
+        if not self.name:
+            self.name = self.organization
+        if not self.slug:
+            self.slug = Org.slugify_org(self.organization)
         models.Model.save(self)
+
+    @staticmethod
+    def slugify_org(text):
+        slugtext = text.replace('&','and')
+        return defaultfilters.slugify(slugtext)
 
     def get_link(self, link_id):
         try:
@@ -510,9 +517,13 @@ PUBLISHING_STATUS_CHOICES = [
     (PUBLISHING_STATUS_PUBLIC,PUBLISHING_STATUS_PUBLIC)
 ]
 
+
 class PublishingStatusMananger(models.Manager):
-    def get_public(self, user, model):
-        return model.objects.filter(owner=user, publish__status=PUBLISHING_STATUS_PUBLIC)
+    def get_public(self, user, model, viewer=None):
+        query = model.objects.filter(owner=user)
+        if viewer != user:
+            query = query.filter(publish__status=PUBLISHING_STATUS_PUBLIC)
+        return query
     def get_in_progress(self, user, model):
         if model == Layer:
             # don't show annotations
@@ -533,6 +544,7 @@ class PublishingStatusMananger(models.Manager):
         # verify a valid status
         stat.clean_fields()
         stat.save()
+
 
 class PublishingStatus(models.Model):
     '''This is a denormalized model - could have gone with a content-type
@@ -582,8 +594,51 @@ class PublishingStatus(models.Model):
         obj.set_gen_level(AUTHENTICATED_USERS, level)
         obj.set_user_level(owner, obj.LEVEL_ADMIN)
         models.Model.save(self, *args)
-        
-        
+
+
+class AnnotationManager(gis.GeoManager):
+    
+    def copy_map_annotations(self, source_id, target):
+        source = Map.objects.get(id=source_id)
+        copies = []
+        for ann in source.annotation_set.all():
+            ann.map = target
+            ann.pk = None
+            copies.append(ann)
+        Annotation.objects.bulk_create(copies)
+
+
+class Annotation(models.Model):
+    objects = AnnotationManager()
+
+    map = models.ForeignKey(Map)
+    title = models.TextField()
+    content = models.TextField(blank=True, null=True)
+    the_geom = gis.GeometryField(blank=True, null=True)
+    start_time = models.BigIntegerField(blank=True, null=True)
+    end_time = models.BigIntegerField(blank=True, null=True)
+    in_timeline = models.BooleanField()
+    in_map = models.BooleanField()
+    appearance = models.TextField(blank=True, null=True)
+
+    def _timefmt(self, val):
+        return datetime.isoformat(datetime.utcfromtimestamp(val))
+
+    def set_start(self, val):
+        self.start_time = parse_date_time(val)
+
+    def set_end(self, val):
+        self.end_time = parse_date_time(val)
+
+    @property
+    def start_time_str(self):
+        return self._timefmt(self.start_time) if self.start_time else ''
+
+    @property
+    def end_time_str(self):
+        return self._timefmt(self.end_time) if self.end_time else ''
+
+
 def audit_layer_metadata(layer):
     '''determine if metadata is complete to allow publishing'''
     return all([
@@ -651,8 +706,17 @@ def create_user_activity(sender, instance, created, **kw):
         UserActivity.objects.create(user=instance)
 
 
+def map_copied(sender, source_id, **kw):
+    Annotation.objects.copy_map_annotations(source_id, sender)
+
+
 def audit_profile(sender, user, avatar, **kw):
     user.get_profile().update_audit()
+
+
+@receiver(post_delete, sender=Org)
+def org_delete_user(sender, instance, **kwargs):
+    instance.user.delete()
 
 
 signals.post_save.connect(create_user_activity, sender=User)
@@ -675,6 +739,8 @@ upload_complete.connect(set_publishing_private, sender=None)
 upload_complete.connect(configure_gwc, sender=None)
 # @annoyatron2 - after map is saved, set_default_permissions is called - hack this
 Map.set_default_permissions = lambda s: None
+
+map_copied_signal.connect(map_copied)
 
 # ensure hit count records are created up-front
 signals.post_save.connect(create_hitcount, sender=Map)

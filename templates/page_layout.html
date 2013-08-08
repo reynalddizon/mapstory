@@ -43,10 +43,15 @@
 
             {% if user.is_authenticated %}
                 <a id="login-link" href="{% url auth_logout %}">{% trans "Log out" %}</a>
-                <div class="user">{% activity_notifier user %}<a title="About You, The StoryTeller" href="{% url about_storyteller user.username %}">Welcome {% if user.get_profile %}{{ user.get_profile.display_name }}{% else %}{{ user.username }}{% endif %}</a></div>
+                <div class="user">
+                    <a id="AskbotAskButton" class="orange" href="#">FEEDBACK</a>
+                    <a title="About You, The StoryTeller" href="{% url about_storyteller user.username %}">Welcome
+                        {% if user.get_profile %}{{ user.get_profile.display_name }}{% else %}{{ user.username }}{% endif %}</a>
+                </div>
             {% else %}
                 <a id="login-link" href="#login-form-pop">{% trans "Log in" %}</a>
                 <div class="user">
+                <a id="AskbotAskButton" class="orange" href="#">FEEDBACK</a>
                 {% if ACCOUNT_OPEN_SIGNUP %}
                 <a href="{% url account_signup %}">{% trans "Register" %}</a>
                 {% else %}
@@ -71,9 +76,8 @@
         <ul class="fancyfont">
             <li rel="category"><a href="/" class="tab-sections {% active_nav_tab request "sections" %}">SECTIONS</a></li>
             <li rel="search"><a href="{% url new_search %}" class="tab-search {% active_nav_tab request "search" %}">SEARCH MAPSTORY</a></li>
-            <li><a href="{% url how_to %}" class="tab-how">HOW TO</a></li>
-            <li><a href="{% url reflections %}" class="tab-how">REFLECTIONS</a></li>
-            <li><a href="http://wiki.mapstory.org/index.php?title=Main_Page" target="_blank">ABOUT</a></li>
+            <li rel="howto"><a href="http://wiki.mapstory.org/index.php?title=How_To" target="_blank" class="tab-how">HOW TO</a></li>
+            <li rel="about"><a href="http://wiki.mapstory.org/index.php?title=Main_Page" target="_blank">ABOUT</a></li>
             <li><a href="http://blog.mapstory.org/" class="tab-blog" target="_blank">BLOG</a></li>
             {% if user.is_authenticated %}
                 <li class=""><a class="" id="profileLink" href="{% url profiles_profile_detail user.username %}">{% trans "PROFILE" %}</a></li>
@@ -119,6 +123,12 @@
           <li><a rel="search" href="{% url search_maps %}" class="subtab-search-stories {% active_sub_nav request search_maps %}">Search MapStories</a></li>
           <li><a rel="search" href="{% url search_owners %}" class="subtab-search-tellers {% active_sub_nav request search_owners %}">Search StoryTellers</a></li>
           {% endcache %}
+          <li><a rel="about" class="hide" href="http://wiki.mapstory.org/index.php?title=MapStory.org" target="_blank">MapStory.org</a></li>
+          <li><a rel="about" class="hide" href="http://wiki.mapstory.org/index.php?title=Community" target="_blank">The Community</a></li>
+          <li><a rel="about" class="hide" href="http://wiki.mapstory.org/index.php?title=The_MapStory_Foundation" target="_blank">The Foundation</a></li>
+          <li><a rel="howto" class="hide" href="http://wiki.mapstory.org/index.php?title=How_To#Get_Started" target="_blank">Get Started</a></li>
+          <li><a rel="howto" class="hide" href="http://wiki.mapstory.org/index.php?title=How_To#Get_Engaged" target="_blank">Get Engaged</a></li>
+          <li><a rel="howto" class="hide" href="http://wiki.mapstory.org/index.php?title=How_To#Get_Skillz" target="_blank">Get Skillz</a></li>
       </ul>
         {% endblock %}
 
@@ -174,8 +184,6 @@
       <div class="wrap selfclear">
         <div class="onecol">
           Powered by <a href="http://geonode.org">{% trans "GeoNode" %}</a>
-          | <strong>{% trans "Need Help?" %}</strong>
-          <a href="{% url help %}">{% trans "Help" %}</a>
           | <a href="http://wiki.mapstory.org/index.php?title=License_and_Copyright">License</a>
           | <a href="http://wiki.mapstory.org/index.php?title=Terms_of_Service">Terms of Service</a>
           {% comment %}

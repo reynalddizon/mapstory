@@ -2,6 +2,8 @@ from django.conf.urls.defaults import *
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core import urlresolvers
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.views.generic.simple import direct_to_template
 from django.views.generic import RedirectView
 from geonode.sitemap import LayerSitemap, MapSitemap
@@ -10,11 +12,15 @@ from mapstory.forms import ProfileForm
 from mapstory.views import SignupView
 from hitcount.views import update_hit_count_ajax
 from account.views import ConfirmEmailView
+from account.views import LoginView
+from account.views import LogoutView
+
+import hmac
+import hashlib
 
 # load our social signals
 from mapstory import social_signals
 
-# Uncomment the next two lines to enable the admin:
 from django.contrib import admin
 admin.autodiscover()
 
@@ -32,6 +38,36 @@ sitemaps = {
     "layer": LayerSitemap,
     "map": MapSitemap
 }
+
+
+# hack login/logout to set cookies for the warper
+# this will only work if the site is running on mapstory.org
+class WarperCookieLogin(LoginView):
+    def post(self, *args, **kwargs):
+        super(WarperCookieLogin, self).post(*args, **kwargs)
+        if self.request.user.is_authenticated():
+            return HttpResponse(status=200)
+        return HttpResponse(
+                    content="invalid login",
+                    status=400,
+                    mimetype="text/plain"
+                )
+
+    def form_valid(self, form):
+        resp = super(WarperCookieLogin, self).form_valid(form)
+        key = getattr(settings, 'WARPER_KEY', 'abc123')
+        digested = hmac.new(key, form.user.username, hashlib.sha1).hexdigest()
+        cookie = '%s:%s' % (form.user.username, digested)
+        resp.set_cookie('msid', cookie, domain='warper.mapstory.org', httponly=True)
+        return resp
+
+
+class WarperCookieLogout(LogoutView):
+    def post(self, *args, **kwargs):
+        resp = super(WarperCookieLogout, self).post(self, *args, **kwargs)
+        resp.delete_cookie('msid', domain='warper.mapstory.org')
+        return resp
+
 
 class NamedRedirect(RedirectView):
     name = None
@@ -58,6 +94,11 @@ urlpatterns = patterns('',
     ('^profiles/create/$', 'profiles.views.create_profile', {'form_class': ProfileForm,}),
     # and redirect the profile list
     url('^profiles/$', NamedRedirect.as_view(name='search_owners')),
+
+    # alias these for compat with security from geonode2
+    url('^layers/acls$', 'geonode.maps.views.layer_acls'),
+    url('^layers/resolve_user$', 'geonode.maps.views.user_name'),
+
 )
 
 urlpatterns += patterns('mapstory.views',
@@ -65,6 +106,8 @@ urlpatterns += patterns('mapstory.views',
 
     # ugh, overrides
     # for the account views - we are only using these
+    url(r"^accounts/ajax_login", WarperCookieLogin.as_view(), name="account_login"),
+    url(r"^accounts/logout", WarperCookieLogout.as_view(), name="account_logout"),
     url(r"^account/confirm_email/(?P<key>\w+)/$", ConfirmEmailView.as_view(), name="account_confirm_email"),
     url(r"^account/signup/$", SignupView.as_view(), name="account_signup"),
     # and this from geonode
@@ -127,6 +170,7 @@ urlpatterns += patterns('mapstory.views',
     url(r'^search/favoriteslist$','favoriteslist',name='favoriteslist'),
     url(r'^mapstory/resource/(?P<resource>[-\w]+)/links', 'resource_links', name='resource_links'),
     url(r'^mapstory/resource/(?P<resource>[-\w]+)/ribbon', 'resource_links', {'link_type' : 'ribbon_links'}, name='resource_ribbon_links'),
+    url(r'^maps/(?P<mapid>\d+)/annotations$','annotations',name='annotations'),
 
     url(r'^ajax/hitcount/$', update_hit_count_ajax, name='hitcount_update_ajax'),
 

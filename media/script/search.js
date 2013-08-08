@@ -231,13 +231,14 @@ Ext.onReady(function() {
     }
 
     if (init_search) {
-        if (init_search.q) {
-            Ext.get('searchField').dom.value = init_search.q;
-        }
         if ('bytype' in init_search) {
             Ext.get('bytype').parent('.refineSection').setVisibilityMode(Ext.Element.DISPLAY).hide();
         }
         queryItems = init_search;
+        if (init_search.q) {
+            Ext.get('searchField').dom.value = init_search.q;
+            useRelevanceSorting();
+        }
     }
     fetch();
     var scrollEl = Ext.isIE ? window : document;
@@ -550,6 +551,11 @@ Ext.onReady(function() {
     new Ext.ToolTip({
         target: 'filter-tip'
     });
+
+    function useRelevanceSorting() {
+        Ext.select('#sortForm select').item(0).dom.selectedIndex = 5; // @todo
+        queryItems['sort'] = 'rel';
+    }
     
     // and combine with search form
     Ext.get('searchForm').on('keypress',function(ev) {
@@ -557,7 +563,7 @@ Ext.onReady(function() {
         if (keycode == '13') {
             ev.preventDefault();
             queryItems['q'] = this.dom.search.value;
-            Ext.select('#sortForm select').item(0).dom.selectedIndex = 5;
+            useRelevanceSorting();
             reset();
         }
     });

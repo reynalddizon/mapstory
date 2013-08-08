@@ -29,6 +29,8 @@
 <script type="text/javascript">
 {% autoescape off %}
 
+{% if not gs_error %}
+
 var app = new GeoExplorer();
 
 // when the add layers widget on the page load
@@ -81,6 +83,9 @@ $(function () {
     var headers = {
         'X-CSRFToken' : Ext.util.Cookies.get('csrftoken')
     };
+    $(document).ajaxSend(function(event, xhr, settings) {
+        xhr.setRequestHeader("X-CSRFToken", Ext.util.Cookies.get('csrftoken'));
+    });
     Ext.Ajax.defaultHeaders = headers;
     {# MONKEY PATCH #}
     OpenLayers.Request._monkey_issue = OpenLayers.Request.issue;
@@ -91,6 +96,7 @@ $(function () {
     };
 })()
 
+{% endif %}
 // monkey patch the default font property for the FontComboBox
 gxp.form.FontComboBox.prototype.defaultFont = 'Arial';
 {% endautoescape %}
@@ -110,6 +116,11 @@ gxp.form.FontComboBox.prototype.defaultFont = 'Arial';
   <div id="more-info-tpl"><a class='link' href='{permalink}'>{% trans "View info" %}</a></div>
   <div id="title-tpl"><a class='maplist' href='{% url search_maps %}'>{% trans "Maps" %}</a> / <a href="{permalink}">{title}</a></div>
 </div>
+{% if gs_error %}
+<div style="margin-top:10%; font-weight: bold; text-align: center;">
+    {% include "maps/_geoserver_down.html" %}
+</div>
+{% endif %}
 {% comment %}new map view has no map{% endcomment %}
 {% if map %}{% map_view_hitcount map %}{% endif %}
 {% endblock %}

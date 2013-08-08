@@ -20,6 +20,7 @@
 <script type="text/javascript" src="{% static "script/favorites.js" %}"></script>
 <script type="text/javascript" src="{% static "script/info.js" %}"></script>
     <script type="text/javascript">
+{% if not gs_error %}
 {% autoescape off %}
         var styleEditor, modified = false;
         Ext.onReady(function() {
@@ -149,6 +150,8 @@
         });
 
 {% endautoescape %}
+{% endif %} {# gs_error #}
+
     var hasThumb = {{ layer.has_thumbnail|lower }};
     var thumbURL = "{% url layer_thumbnail layer.typename %}";
     </script>
@@ -165,7 +168,9 @@
             <h2 class="icn-storylayers">{{ layer.title|default:layer.name }}</h2>
         </div>
         <div class="span4 top-detail-actions">
+            {% if not gs_error %}
             <a href="{% url maps_new %}?layer={{layer.typename}}" target="_">Create a Story using this StoryLayer</a>
+            {% endif %}
         </div>
     </div>
     <div class="row">
@@ -173,7 +178,11 @@
             <div class="box mrg-btm describe-object">
                 <div class="story-detail">
                     {% warn_status request layer %}
+                    {% if gs_error %}
+                    <div class="alert-error" style="height:74px; padding:22%; text-align: center">{% include "maps/_geoserver_down.html" %}</div>
+                    {% else %}
                     <div id="preview_map"></div>
+                    {% endif %}
                     <div class="metrics">
                         {% map_view_hitcount layer %}
                         {% overall_rating layer "layer" as layer_rating %}
@@ -219,7 +228,9 @@
                             {% endif %}
                         </div>
                         <div class="tab-pane" id="actions6">
-                            {% if user.is_authenticated %}
+                            {% if gs_error %}
+                            {% include "maps/_geoserver_down.html" %}
+                            {% elif user.is_authenticated %}
                             <h4>Download this StoryLayer:</h4>
                             <div class="btn-group">
                                 <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
@@ -253,6 +264,9 @@
                             <span style="float:right">
                                 {% manual_link "styling" "Style Help?" %}
                             </span>
+                            {% if gs_error %}
+                            {% include "maps/_geoserver_down.html" %}
+                            {% else %}
                             <div id="style-preview" class="styles-list">
                                 <h4>Change Style (Preview)</h4>
                                 <input type="radio" name="style" id="{{layer.publishing.default_style.name}}" value="{{layer.publishing.default_style.name}}" checked="checked"/>
@@ -297,6 +311,7 @@
                                 <a href="#" class="btn">Upload</a>
                                 {% csrf_token %}
                             </form>
+                            {% endif %} {# end of gs_error #}
                          </div>
                          {% endif %}
                     </div>
@@ -359,5 +374,7 @@ $(function() {
 });
 </script>
 <script type="text/javascript" src="{{ STATIC_URL}}bootstrap/js/bootstrap-modal.js"></script>
+{% if not gs_error %}
 {% map_view_hitcount_tracker request layer %}
+{% endif %}
 {% endblock %}

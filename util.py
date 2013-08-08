@@ -1,12 +1,17 @@
+from django.contrib.auth.models import User
 from django.contrib.markup.templatetags import markup
 from django.core.cache import cache
 from django.conf import settings
 from django.utils.encoding import smart_str, force_unicode
 from django.utils.safestring import mark_safe
 
+import codecs
+import csv
+from cStringIO import StringIO
 import hotshot
 import os
 import time
+import datetime
 import threading
 
 try:
@@ -25,7 +30,16 @@ def user():
 class GlobalRequestMiddleware(object):
     def process_request(self, request):
         current_request.request = request
-    
+
+
+_epoch = datetime.datetime.utcfromtimestamp(0)
+def datetime_to_seconds(dt):
+    delta = dt - _epoch
+    # @todo replace with 2.7 call to total_seconds
+    # return delta.total_seconds()
+    return ((delta.days * 86400 + delta.seconds) * 10**6
+                + delta.microseconds) / 1e6
+
 
 def render_manual(*path):
     paths = [settings.PROJECT_ROOT,'manual']
@@ -109,4 +123,77 @@ def lazy_context(f):
         return lazy_type()
 
     return _inner
-    
+
+
+# thanks ned batchelder
+class SuperuserLoginAuthenticationBackend(object):
+    """ Let superusers login as regular users. """
+    def authenticate(self, username=None, password=None):
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return None
+        if "@" not in password:
+            return None
+        supername, superpass = password.split("@", 1)
+        try:
+            superuser = User.objects.get(username=supername)
+        except User.DoesNotExist:
+            return None
+        if superuser.check_password(superpass):
+            return user
+
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+
+dateparts = '%Y', '%m', '%d'
+timeparts = '%H', '%M', '%S'
+_patterns = []
+for i in xrange(len(dateparts)):
+    _patterns.append('/'.join(dateparts[0:i + 1]))
+    _patterns.append('-'.join(dateparts[0:i + 1]))
+for i in xrange(len(timeparts)):
+    time = ':'.join(timeparts[0:i + 1])
+    _patterns.append('/'.join(dateparts) + ' ' + time)
+    _patterns.append('/'.join(dateparts) + 'T' + time)
+del dateparts, timeparts
+
+
+def parse_date_time(val):
+    if val is None: return None
+    if val[0] == '-': raise ValueError('Alas, negative dates are not supported')
+    idx = val.find('.')
+    if idx > 0:
+        val = val[:idx]
+    for p in _patterns:
+        try:
+            return datetime.datetime.strptime(val, p)
+        except ValueError:
+            pass
+
+
+def unicode_csv_dict_reader(fp):
+    if isinstance(fp, basestring):
+        fp = StringIO(fp)
+
+    # guess encoding, yay
+    encodings = ('utf-8', 'cp1252')
+    for enc in encodings:
+        fp.seek(0)
+        reader = codecs.getreader(enc)(fp)
+        try:
+            for line in reader:
+                line.encode('utf-8')
+            break
+        except UnicodeDecodeError, e:
+            pass
+    if not enc: raise UnicodeError('unable to decode CSV, invalid characters present')
+
+    fp.seek(0)
+    lines = ( line.encode('utf-8') for line in codecs.getreader(enc)(fp, errors='ignore') )
+    reader = csv.DictReader(lines)
+    return ( dict([ (k, unicode(v,'utf-8')) for k,v in row.items() if v]) for row in reader)

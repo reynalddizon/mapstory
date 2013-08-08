@@ -10,3 +10,12 @@ local_settings.py
 /sitestatic
 /thumbs/
 /uploaded/
+.coverage
+.fab.*
+.fab.prod
+.noseids
+/*.json
+/*.local
+/*-extract.zip
+nosetests.xml
+/scratch
