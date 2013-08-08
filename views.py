@@ -478,7 +478,7 @@ class SignupView(account.views.SignupView):
 @transaction.commit_on_success()
 def annotations(req, mapid):
     '''management of annotations for a given mapid'''
-
+    #todo cleanup and break apart
     if req.method == 'GET':
         cols = [ f.name for f in models.Annotation._meta.fields if f.name not in ('map','the_geom') ]
 
@@ -539,9 +539,12 @@ def annotations(req, mapid):
         # either a bulk upload or a JSON change
         action = 'upsert'
         get_props = lambda r: r
+        finish = lambda: None
         created = []
         form_mode = 'client'
         content_type = None
+        overwrite = False
+        error_format = None
 
         def id_collector(form):
             created.append(form.instance.id)
@@ -553,6 +556,17 @@ def annotations(req, mapid):
             id_collector = lambda f: None
             form_mode = 'csv'
             content_type = 'text/html'
+            ids = list(models.Annotation.objects.filter(map=mapobj).values_list('id', flat=True))
+            # delete existing, we overwrite
+            finish = lambda: models.Annotation.objects.filter(id__in=ids).delete()
+            overwrite = True
+            def error_format(row_errors):
+                response = []
+                for re in row_errors:
+                    row = re[0] + 1
+                    for e in re[1]:
+                        response.append('[%s] %s : %s' % (row, e, re[1][e]))
+                return 'The following rows had problems:<ul><li>' + '</li><li>'.join(response) + "</li></ul>"
         else:
             data = json.loads(req.body)
             if isinstance(data, dict):
@@ -566,17 +580,19 @@ def annotations(req, mapid):
             return json_response({'success' : True})
 
         errors = []
+        i = None
         for i,r in enumerate(data):
             props = get_props(r)
             props['map'] = mapobj.id
             ann = None
             id = r.get('id', None)
-            if id:
+            if id and not overwrite:
                 ann = models.Annotation.objects.get(map=mapobj, pk=id)
 
             # form expects everything in the props, copy geometry in
             if 'geometry' in r:
                 props['geometry'] = r['geometry']
+            props.pop('id', None)
             form = AnnotationForm(props, instance=ann, form_mode=form_mode)
             if not form.is_valid():
                 errors.append((i, form.errors))
@@ -584,9 +600,14 @@ def annotations(req, mapid):
                 form.save()
             if id is None:
                 id_collector(form)
+        if i is None:
+            errors = [ (0, 'No data could be read')]
         if errors:
             body = None
+            if error_format:
+                return HttpResponse(error_format(errors), status=400)
         else:
+            finish()
             body = {'success' : True}
             if created:
                 body['ids'] = created

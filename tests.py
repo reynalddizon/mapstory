@@ -17,6 +17,7 @@ from mapstory.models import audit_layer_metadata
 from mapstory.models import Topic
 from mapstory.models import Link
 from mapstory.templatetags import mapstory_tags
+from mapstory.util import unicode_csv_dict_reader
 
 from agon_ratings.models import Rating
 from dialogos.models import Comment
@@ -322,7 +323,7 @@ class AnnotationsTest(TestCase):
         target.id += 1
         target.save()
 
-        Annotation.objects.copy_map_annotations(target, self.dummy.id)
+        Annotation.objects.copy_map_annotations(self.dummy.id, target)
         # make sure we have 100 and we can resolve the corresponding copies
         self.assertEqual(100, target.annotation_set.count())
         for a in self.dummy.annotation_set.all():
@@ -412,6 +413,8 @@ class AnnotationsTest(TestCase):
     def test_csv_upload(self):
         '''test csv upload with update and insert'''
 
+        #@todo cleanup and break out into simpler cases
+
         self.make_annotations(self.dummy, 2)
 
         header = u"id,title,content,lat,lon,start_time,end_time,appearance\n"
@@ -422,12 +425,14 @@ class AnnotationsTest(TestCase):
             header +
             u'"",foo bar,blah,5,10,2001/01/01,2005\n'
             u"1,bar foo,halb,10,20,2010-01-01,,\n"
-            u"2,\u201c,bunk,20,30,,,"
+            u"2,bunk,\u201c,20,30,,,"
         ).encode('utf-8'))
         fp.seek(0)
         # verify failure before login
         resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
         self.assertEqual(403, resp.status_code)
+        # still only 2 annotations
+        self.assertEqual(2, Annotation.objects.filter(map=self.dummy.id).count())
 
         # login, rewind the buffer and verify
         self.c.login(username='admin',password='admin')
@@ -437,24 +442,73 @@ class AnnotationsTest(TestCase):
         self.assertEqual('text/html', resp['content-type'])
         jsresp = json.loads(resp.content)
         self.assertEqual(True, jsresp['success'])
-        ann = Annotation.objects.get(id=1)
-        self.assertEqual('bar foo', ann.title)
+        ann = Annotation.objects.filter(map=self.dummy.id)
+        # we uploaded 3, the other 2 should be deleted (overwrite mode)
+        self.assertEqual(3, ann.count())
+        ann = Annotation.objects.get(title='bar foo')
         self.assertEqual(ann.the_geom.x, 20.)
-        ann = Annotation.objects.get(id=2)
-        self.assertEqual(u'\u201c', ann.title)
-        ann = Annotation.objects.get(id=3)
+        ann = Annotation.objects.get(title='bunk')
+        self.assertTrue(u'\u201c', ann.content)
+        ann = Annotation.objects.get(title='foo bar')
         self.assertEqual('foo bar', ann.title)
         self.assertEqual(ann.the_geom.x, 10.)
 
-        # verify round trip of unicode quote
         resp = self.c.get(reverse('annotations',args=[self.dummy.id]) + "?csv")
-        from mapstory.util import unicode_csv_dict_reader
         x = list(unicode_csv_dict_reader(resp.content))
         self.assertEqual(3, len(x))
-        by_content = dict( [(v['content'],v) for v in x] )
-        self.assertEqual(u'\u201c', by_content['bunk']['title'])
-        self.assertEqual('2010-01-01T00:00:00', by_content['halb']['start_time'])
-        self.assertEqual('2001-01-01T00:00:00', by_content['blah']['start_time'])
-        self.assertEqual('2005-01-01T00:00:00', by_content['blah']['end_time'])
+        by_title = dict( [(v['title'],v) for v in x] )
+        # verify round trip of unicode quote
+        self.assertEqual(u'\u201c', by_title['bunk']['content'])
+        # and times
+        self.assertEqual('2010-01-01T00:00:00', by_title['bar foo']['start_time'])
+        self.assertEqual('2001-01-01T00:00:00', by_title['foo bar']['start_time'])
+        self.assertEqual('2005-01-01T00:00:00', by_title['foo bar']['end_time'])
 
-        #@todo more complete error handling in CSV
+        # verify windows codepage quotes
+        fp = tempfile.NamedTemporaryFile(delete=True)
+        fp.write((
+            str(header) +
+            ',\x93windows quotes\x94,yay,,,,'
+        ))
+        fp.seek(0)
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
+        ann = Annotation.objects.get(map=self.dummy.id)
+        # windows quotes are unicode now
+        self.assertEqual(u'\u201cwindows quotes\u201d', ann.title)
+
+        # make sure a bad upload aborts the transaction (and prevents dropping existing)
+        fp = tempfile.NamedTemporaryFile(delete=True)
+        fp.write((
+            str(header) * 2
+        ))
+        fp.seek(0)
+        resp = self.c.post(reverse('annotations',args=[self.dummy.id]),{'csv':fp})
+        self.assertEqual(400, resp.status_code)
+        # there should only be one that we uploaded before
+        Annotation.objects.get(map=self.dummy.id)
+        self.assertEqual('yay', ann.content)
+        # @todo verify error messages
+        
+
+class UtilTest(TestCase):
+
+    def test_unicode_csv_dict_reader(self):
+        #@todo cleanup
+        fp = tempfile.NamedTemporaryFile(delete=True)
+        fp.write((
+            'abc,xyz\n' +
+            'blah,\x93windows quotes\x94\n'
+        ))
+        fp.seek(0)
+        rows = list(unicode_csv_dict_reader(fp))
+        # cp1252 quotes get translated to unicode
+        self.assertEqual(u'\u201cwindows quotes\u201d', rows[0]['xyz'])
+        fp = tempfile.NamedTemporaryFile(delete=True)
+        fp.write((
+            u'abc,xyz\n' +
+            u'blah,\u201cunicode quotes\u201d\n'
+        ).encode('utf-8'))
+        fp.seek(0)
+        rows = list(unicode_csv_dict_reader(fp))
+        self.assertEqual(u'\u201cunicode quotes\u201d', rows[0]['xyz'])
+
