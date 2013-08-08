@@ -497,7 +497,8 @@ class UtilTest(TestCase):
         fp = tempfile.NamedTemporaryFile(delete=True)
         fp.write((
             'abc,xyz\n' +
-            'blah,\x93windows quotes\x94\n'
+            # \x9d is some control char - will be ignored??
+            'blah\x9d,\x93windows quotes\x94\n'
         ))
         fp.seek(0)
         rows = list(unicode_csv_dict_reader(fp))
