@@ -35,7 +35,10 @@ class GlobalRequestMiddleware(object):
 _epoch = datetime.datetime.utcfromtimestamp(0)
 def datetime_to_seconds(dt):
     delta = dt - _epoch
-    return delta.total_seconds()
+    # @todo replace with 2.7 call to total_seconds
+    # return delta.total_seconds()
+    return ((delta.days * 86400 + delta.seconds) * 10**6
+                + delta.microseconds) / 1e6
 
 
 def render_manual(*path):
