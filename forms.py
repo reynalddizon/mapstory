@@ -116,14 +116,23 @@ class AnnotationForm(forms.ModelForm):
         self.form_mode = kwargs.pop('form_mode','client')
         super(AnnotationForm, self).__init__(*args, **kwargs)
 
+    def parse_float(self, name):
+        val = self.data.get(name, None)
+        if not val: return None
+        try:
+            return float(val)
+        except ValueError:
+            self._my_errors[name] = 'Invalid value for %s : "%s"' % (name, val)
+
     def full_clean(self):
         self._my_errors = {}
         geom = self.data.get('geometry', None)
         if geom:
             # @todo - optimize me, round tripping json
             self.data['the_geom'] = json.dumps(geom)
-        if 'lat' in self.data:
-            self.data['the_geom'] = Point(float(self.data['lon']), float(self.data['lat']))
+        lat, lon = self.parse_float('lat'), self.parse_float('lon')
+        if all([lat,lon]):
+            self.data['the_geom'] = Point(lon, lat)
         self._convert_time('start_time')
         self._convert_time('end_time')
         super(AnnotationForm, self).full_clean()
@@ -141,10 +150,15 @@ class AnnotationForm(forms.ModelForm):
                 pass
         # otherwise, parse as formatted strings
         if not numeric:
+            err = None
             try:
                 parsed = parse_date_time(val)
             except ValueError, e:
-                self._my_errors[key] = str(e)
+                err = str(e)
+            if val is not None and parsed is None:
+                err = 'Unable to read as date : %s' % val
+            if err:
+                self._my_errors[key] = err
             if parsed:
                 numeric = int(datetime_to_seconds(parsed))
         self.data[key] = str(numeric) if numeric is not None else None

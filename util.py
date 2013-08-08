@@ -176,6 +176,21 @@ def parse_date_time(val):
 def unicode_csv_dict_reader(fp):
     if isinstance(fp, basestring):
         fp = StringIO(fp)
-    lines = ( line.encode('utf-8') for line in codecs.getreader('utf-8')(fp) )
+
+    # guess encoding, yay
+    encodings = ('utf-8', 'cp1252')
+    for enc in encodings:
+        fp.seek(0)
+        reader = codecs.getreader(enc)(fp)
+        try:
+            for line in reader:
+                line.encode('utf-8')
+            break
+        except UnicodeDecodeError, e:
+            pass
+    if not enc: raise UnicodeError('unable to decode CSV, invalid characters present')
+
+    fp.seek(0)
+    lines = ( line.encode('utf-8') for line in codecs.getreader(enc)(fp) )
     reader = csv.DictReader(lines)
     return ( dict([ (k, unicode(v,'utf-8')) for k,v in row.items() if v]) for row in reader)
