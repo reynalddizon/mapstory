@@ -21,19 +21,14 @@ from dialogos.models import Comment
 
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.core import serializers
-from django.core.cache import cache
-from django.core.exceptions import SuspiciousOperation
 from django.core.paginator import Paginator
 from django.core.paginator import EmptyPage
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.conf import settings
-from django.contrib.gis.geos import GEOSGeometry
 from django.db.models import signals
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
@@ -42,11 +37,9 @@ from django.template import RequestContext
 from django.template import loader
 from django.template import defaultfilters as filters
 from django.contrib.contenttypes.models import ContentType
-from django.views.decorators.cache import cache_page
 
 
 from lxml import etree
-import codecs
 import csv
 import json
 import math
