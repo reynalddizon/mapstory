@@ -30,6 +30,7 @@ from django.db.models import signals
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
@@ -120,7 +121,7 @@ def _related_stories_page(req, section=None, map_obj=None):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     return target, page
 
 
@@ -403,7 +404,7 @@ def storyteller_activity_pager(req, username, what='actions'):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     link = tiles =  ''
     if page:
         show_link = what != 'actions'
@@ -420,7 +421,7 @@ def by_storyteller_pager(req, user, what):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     link = tiles = ''
     when = lambda o: o.last_modified if what == 'maps' else o.date
     if pager:
