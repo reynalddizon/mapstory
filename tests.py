@@ -28,6 +28,7 @@ import json
 import logging
 import re
 import tempfile
+import urlparse
 
 # these can just get whacked
 simplesearch.map_updated = lambda **kw: None
@@ -513,3 +514,72 @@ class UtilTest(TestCase):
         rows = list(unicode_csv_dict_reader(fp))
         self.assertEqual(u'\u201cunicode quotes\u201d', rows[0]['xyz'])
 
+
+class LinkTest(TestCase):
+
+    def test_tags(self):
+        url = mapstory_tags.ext_url('wiki', 'curation_guide_ratings')
+        self.assertEqual("http://wiki.mapstory.org/index.php?title=Curation_Guide#Ratings", url)
+        link = mapstory_tags.ext_link('wiki', 'curation_guide_ratings')
+        self.assertEqual('<a href="http://wiki.mapstory.org/index.php?title=Curation_Guide#Ratings"></a>',
+            link)
+        link = mapstory_tags.ext_link('wiki', 'curation_guide_ratings',
+            classes='blah')
+        self.assertEqual('<a href="http://wiki.mapstory.org/index.php?title=Curation_Guide#Ratings" class="blah"></a>', link)
+
+    def test_verify_links(self):
+        from mapstory.links import links
+        passed, failed = self._verify_links(links)
+        if failed:
+            self.fail('\n'.join(failed))
+        # make sure we checked something
+        self.assertTrue(len(passed) > 0)
+        
+    def test_verify(self):
+        '''make sure test works with bad data'''
+        links = {
+            "bunk" : {
+                "links" : {
+                    'bad' : 'http://wiki.mapstory.org/blah',
+                    'missing_fragment' : "http://wiki.mapstory.org/index.php?title=Curation_Guide#MISSING"
+                }
+            }
+        }
+        passed, failed = self._verify_links(links)
+        self.assertTrue(len(passed), 0)
+        expected = [
+            ('bad', 'http://wiki.mapstory.org/blah', 'invalid response: 404'),
+            ('missing_fragment', 'http://wiki.mapstory.org/index.php?title=Curation_Guide#MISSING', 'could not locate fragment: MISSING')
+        ]
+        self.assertEqual(expected, failed)
+
+    def _verify_links(self, links):
+        from bs4 import BeautifulSoup
+        import httplib2
+        http = httplib2.Http()
+        failed = []
+        passed = []
+        for cat in links.values():
+            hashed = cat['links']
+            cached = {}
+            for name, url in hashed.items():
+                cache_key = re.sub('#.*','',url)
+                if cache_key not in cached:
+                    print 'fetching content from %s' % url
+                    resp, content = http.request(url, 'GET')
+                    if resp.status != 200:
+                        failed.append((name, url, 'invalid response: %s' % resp.status))
+                        continue
+                    cached[cache_key] = resp, content
+                else:
+                    resp, content = cached[cache_key]
+                parts = urlparse.urlparse(url)
+                if parts.fragment:
+                    if not isinstance(content, BeautifulSoup):
+                        content = BeautifulSoup(content)
+                        cached[cache_key] = resp, content
+                    found = content.select('#%s' % parts.fragment)
+                    if len(found) == 0:
+                        failed.append((name, url, 'could not locate fragment: %s' % parts.fragment))
+                passed.append(name)
+        return passed, failed

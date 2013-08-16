@@ -9,6 +9,7 @@ from django.conf import settings
 from geonode.maps.models import Map
 from geonode.maps.models import Layer
 from geonode.maps.models import ALL_LANGUAGES
+from mapstory.links import resolve_link
 from mapstory.models import ContactDetail
 from mapstory.models import Section
 from mapstory.models import Favorite
@@ -476,6 +477,26 @@ def twitter_card_meta(obj):
 @register.simple_tag
 def google_analytics():
     return loader.render_to_string('ga.html', {}) if settings.ENABLE_ANALYTICS else ''
+
+
+@register.simple_tag
+def ext_url(cat, name):
+    return resolve_link(cat, name)
+
+
+@register.simple_tag
+def ext_link(cat, name, text='', classes=None, title=None, **kw):
+    # if not provided, title could resolve to a defined title at some point
+    url = resolve_link(cat, name)
+    classes = ' class="%s"' % classes if classes else ''
+    title = ' title="%s"' % title if title else ''
+    extra = ' '.join(['%s="%s"' % i for i in kw.items()])
+    return '<a href="%s"%s%s%s>%s</a>' % (url, classes, title, extra, text)
+
+@register.simple_tag
+def wiki_help_link(name, text='', title='Learn More', classes=''):
+    classes = 'icon-question-sign icon-orange ' + classes
+    return ext_link('wiki', name, text=text, classes=classes, title=title, target='_')
     
 
 # @todo - make geonode location play better
