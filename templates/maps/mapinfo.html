@@ -200,6 +200,7 @@ var thumbURL = "{% url geonode.maps.views.map_controller map.id %}?thumbnail";
                     </div>
                         {% if request.user.is_authenticated %}
                         <div class="rating-area">
+                            {% wiki_help_link 'curation_guide_ratings' classes='pull-right' %}
                             <span>{% trans "Rate this MapStory" %}</span>
                             {% user_rating request.user map "map" as user_map_rating %}
                             <div id="user_rating" class="category-map"></div>

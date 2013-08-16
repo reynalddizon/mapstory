@@ -321,6 +321,7 @@
                 
                 <div class="rating-area">
                     {% if request.user.is_authenticated %}
+                        {% wiki_help_link 'curation_guide_ratings' classes='pull-right' %}
                         <span>{% trans "Rate this StoryLayer" %}</span>
                         {% user_rating request.user layer "layer" as user_layer_rating %}
                         <div id="user_rating" class="category-layer"></div>
