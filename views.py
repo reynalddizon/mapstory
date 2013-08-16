@@ -21,20 +21,16 @@ from dialogos.models import Comment
 
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.core import serializers
-from django.core.cache import cache
-from django.core.exceptions import SuspiciousOperation
 from django.core.paginator import Paginator
 from django.core.paginator import EmptyPage
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.conf import settings
-from django.contrib.gis.geos import GEOSGeometry
 from django.db.models import signals
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
@@ -42,11 +38,9 @@ from django.template import RequestContext
 from django.template import loader
 from django.template import defaultfilters as filters
 from django.contrib.contenttypes.models import ContentType
-from django.views.decorators.cache import cache_page
 
 
 from lxml import etree
-import codecs
 import csv
 import json
 import math
@@ -127,7 +121,7 @@ def _related_stories_page(req, section=None, map_obj=None):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     return target, page
 
 
@@ -410,7 +404,7 @@ def storyteller_activity_pager(req, username, what='actions'):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     link = tiles =  ''
     if page:
         show_link = what != 'actions'
@@ -427,7 +421,7 @@ def by_storyteller_pager(req, user, what):
     try:
         page = pager.page(page_num)
     except EmptyPage:
-        pass
+        raise Http404()
     link = tiles = ''
     when = lambda o: o.last_modified if what == 'maps' else o.date
     if pager:

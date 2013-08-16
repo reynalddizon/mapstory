@@ -151,12 +151,13 @@ class AnnotationForm(forms.ModelForm):
         # otherwise, parse as formatted strings
         if not numeric:
             err = None
+            parsed = None
             try:
                 parsed = parse_date_time(val)
             except ValueError, e:
                 err = str(e)
             if val is not None and parsed is None:
-                err = 'Unable to read as date : %s' % val
+                err = 'Unable to read as date : %s, please format as yyyy-mm-dd' % val
             if err:
                 self._my_errors[key] = err
             if parsed:

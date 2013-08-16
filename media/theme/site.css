@@ -2187,3 +2187,7 @@ h2.icn-storylayer span, h2.icn-mapstory span {
     width: 80%;
     resize: both;
 }
+
+.icon-orange {
+  background-image: url("../bootstrap/img/glyphicons-halflings-orange.png");
+}
