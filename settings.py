@@ -359,6 +359,9 @@ try:
 except ImportError:
     pass
 
+# set to None to default to ACCOUNT_SIGNUP_REDIRECT_URL
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = None
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = '/accounts/login/?next=/profiles/edit/'
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profiles/edit/'
 
 if ENABLE_SOCIAL_LOGIN:
